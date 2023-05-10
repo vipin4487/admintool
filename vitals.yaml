@@ -1,0 +1,8 @@
+apiVersion: v1
+metadata:
+  askId: UHGWM110-027665
+  caAgileId: 96545499348d
+  projectKey: 
+  projectFriendlyName: OmniDesktop-AgentService
+  componentType: code
+  targetQG: GATE_00

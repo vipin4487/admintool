@@ -1,0 +1,8 @@
+{
+  "dependencies": {
+    "Kana-Prechat-Migration": {},
+    "CCSDesktopAngular": {
+      "testDependency": "testDependency"
+    }
+  }
+}

@@ -1,0 +1,77 @@
+ <div class="panel panel-primary">
+    <!--<div class="panel-heading" style="font-size:large">
+        Create User       
+    </div>-->
+    <div class="panel-body" style="text-align: center;color: red">
+    <div class="row" *ngIf="!loginSuccess && message == 'Disabled' ">
+           You are not authorized to view this site.Your access to the site has been disabled temporarily, Please contact your Admin.<br />.
+                Inconvinience regretted.....
+                <br /> <br />
+                Thank you for visiting CCS Desktop.
+    </div>  
+    <div class="row" *ngIf="!loginSuccess && message == 'Pending' ">
+      Currently You are not authorized to view this site.<br />
+                You Status is pending. Please contact your Administrator or Supervisor for approval.
+                Thank you for visiting CCS Desktop.
+    </div> 
+    <div class="row" *ngIf="!loginSuccess && message == 'NODATA' ">
+                You are not registered User, Please sign up before login.
+    </div> 
+    <div class="row" *ngIf="isRegistered">
+            <p-message severity="success" [text]="registerMessage" *ngIf="isRegistered"></p-message>
+      </div> 
+     <div class="row" *ngIf="!loginSuccess && message == 'Error' ">
+         Currently We are facing difficulties in getting your profile from the website.<br />
+                Please contact your administrator.Sorry for the inconvenience.<br /><br /><br />
+                Probable causes:<br />
+                            1. DB server might be down.<br />
+                            2. Your Profile is not correctly registered in the admin site.<br />
+                            3. Your profile is missing in our data store.<br />
+                            
+                Thank you for visiting CCS Desktop.
+    </div> 
+    <div class="row" *ngIf="!loginSuccess && message == 'NotAuthenticated' ">
+           You are not authorized, Please contact your Admin.<br />.
+                Inconvinience regretted.....
+                <br /> <br />
+                Thank you for visiting CCS Desktop.
+    </div>
+    </div>
+    <div class="panel-body">
+
+        <div class="row" style="min-height: 300px;"> 
+            <div class="col-md-3">
+
+            </div>
+            
+            <div class="well hoverwell thumbnail col-md-6" style="margin-top: 120px;background-color: #9d9d9d;" >       
+                <table width="100%">
+                    <tbody>
+                        <tr>
+                        <td align="center">
+                            <table width="100%">
+                                <tbody><tr>
+                                    <td align="center" class="style1">
+                                            <span> If you are a registered user please click here
+                                            <a (click)="login()" style="cursor: pointer;">Login</a>.                                            
+                                            <br>
+                                            If you are not already an user please click here
+                                            <a [routerLink]="[RouterUrlRegister]" routerLinkActive="active" >sign up</a>
+                                        </span>
+                                    </td>
+                                </tr>
+                            </tbody></table>
+                        </td>
+                        </tr>                   
+                    </tbody>
+                </table> 
+            </div> 
+
+            <div class="col-md-3">
+
+            </div>
+        </div>  
+    </div>
+
+  
+</div>

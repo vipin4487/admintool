@@ -1,0 +1,14 @@
+p-breadcrumb div  ul {
+    min-height: 30px;
+    margin-top: 6px;
+}
+
+p-breadcrumb > div > ul {
+    min-height: 30px;
+    margin-top: 6px;
+}
+.ui-breadcrumb ul {
+    min-height: 30px;
+    margin-top: 6px;
+}
+

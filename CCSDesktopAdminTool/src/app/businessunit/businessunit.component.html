@@ -1,0 +1,92 @@
+﻿<nav-menu (emitEvent)="businessUnitChangeEvent($event)"></nav-menu>
+
+<p-panel>
+    <div style="word-wrap: break-word;">        
+        <p-table #dt [value]="agentDetails" sortMode="single" selectionMode="single"       [rows]="10" [paginator]="true"
+        scrollable="true"  scrollHeight="400px"  scrollWidth="600px"  (onPageChange)="paginate($event)" >
+
+            <ng-template pTemplate="caption">
+              <div class="ui-helper-clearfix" style="width:100%">
+                <!--<button type="button" pButton icon="fa-plus" style="float:left" (click)="ShowAddDialog()" label="Add"></button>-->
+                <a  style="color: blue" (click)="ShowAddDialog()" icon="fa-plus" *ngIf="addButtonVisible  == true">Create</a>
+            </div>     
+            </ng-template>
+
+            
+            <ng-template pTemplate="header">
+              <tr>
+                  <th pSortableColumn="OMNI_BU">AgentGroups <p-sortIcon field="OMNI_BU"></p-sortIcon></th>
+              </tr>
+              <tr>
+                <th>
+                    <input pInputText type="text" (input)="dt.filter($event.target.value, 'OMNI_BU', 'startsWith')" placeholder="Search by Name" class="p-column-filter">
+                </th>
+                </tr>
+          </ng-template> 
+             
+            <ng-template pTemplate="body" let-rowData let-car>
+              <tr>
+                  <td >
+                          {{car.OMNI_BU }}
+                  </td>
+              </tr>
+          </ng-template>
+            <p-footer></p-footer>
+        </p-table>
+    </div>
+</p-panel>
+
+<p-dialog header="Create AgentGroup"  [style]="{width: '50vw'}" [(visible)]="addAgentGroupDialog" [responsive]="true" showEffect="fade" [modal]="true">
+    <form #addUserForm="ngForm"  (ngSubmit)="createAgentGroup(addUserForm)" autocomplete="off" novalidate>      
+                
+                <div class="form-group" [ngClass]="{'error': addUserForm.controls.OMNI_BU?.invalid && addUserForm.controls.OMNI_BU?.touched}">
+                    <label for="OMNI_BU">Agent Group Name:</label>
+                     <br/>
+                    <!--<em *ngIf="addUserForm.controls.OMNI_BU?.invalid && (addUserForm.controls.OMNI_BU?.touched )">Required</em>-->
+               <div *ngIf="errors" class="alert alert-danger"> 
+    {{ errors }} 
+</div>
+                    <input [(ngModel)]="agentDetail.OMNI_BU"   name="OMNI_BU"  ngModel maxlength="30" (input)="valuechange($event)"  required id="OMNI_BU" type="text" class="form-control"   placeholder="Your Agent Group..." />
+                
+                <!--<div *ngIf="OMNI_BU.invalid && (OMNI_BU.dirty || OMNI_BU.touched)"
+             class="alert alert-danger">
+
+          <div *ngIf="OMNI_BU.errors.required">
+            Name is required.
+          </div>
+          <div *ngIf="OMNI_BU.errors.minlength">
+            Name must be at least 4 characters long.
+          </div>
+          <div *ngIf="OMNI_BU.errors.forbiddenName">
+            Name cannot be Bob.
+          </div>-->
+
+        <!--</div>-->
+              
+                </div>
+             
+
+                <br/>   
+                
+                 <span>   
+                    <button type="submit" class="btn btn-primary" [disabled]="addUserForm.invalid" >Save</button>
+                    <button type="button"  class="btn btn-default" (click)="cancelAddDialog()">Cancel</button>
+                </span>
+                <br/>
+               
+            </form>
+            <br/>
+        {{addUserForm.Value|json}}    
+</p-dialog>
+
+
+
+
+
+
+
+
+
+
+
+

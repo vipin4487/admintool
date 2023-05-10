@@ -1,0 +1,599 @@
+<nav-menu (emitEvent)="businessUnitChangeEvent($event)">
+    </nav-menu>
+    <p-panel>
+        <div style="word-wrap: break-word;">
+            <p-table #dt [value]="screenPops" 
+            sortMode="multiple" 
+            [paginator]="true" 
+            [rows]="5" 
+            [globalFilterFields]="['businessUnitDisplayID','Priority','DisplayTag','ScreenpopHeader','DisplayType','businessUnitDisplayID']"
+            [alwaysShowPaginator]="false" 
+            [rowsPerPageOptions]="[5,10,20,30]">
+                
+                <ng-template pTemplate="caption">
+                    <div class="table-header">
+                        Screen Pop
+                    </div>
+                </ng-template>
+
+                <ng-template pTemplate="header">
+                    <tr>
+                        <th pSortableColumn="businessUnitDisplayID">BusinessUnitDisplayID <p-sortIcon field="businessUnitDisplayID"></p-sortIcon></th>
+                        <th pSortableColumn="Priority">Priority <p-sortIcon field="Priority"></p-sortIcon></th>
+                        <th pSortableColumn="DisplayTag">Display Tag <p-sortIcon field="DisplayTag"></p-sortIcon></th>
+                        <th pSortableColumn="ScreenpopHeader">Screenpop Header <p-sortIcon field="ScreenpopHeader"></p-sortIcon></th>
+                        <th pSortableColumn="DisplayType">Display Type <p-sortIcon field="DisplayType"></p-sortIcon></th>
+                        <th >Active</th>
+                        <th >Actions </th>
+                    </tr>
+                    <tr>
+                        <th>
+                            <input style="width:100%" pInputText type="text" (input)="dt.filter($event.target.value, 'businessUnitDisplayID', 'contains')" placeholder="" class="p-column-filter">
+                        </th>
+                        <th>
+                            <input style="width:100%" pInputText type="text" (input)="dt.filter($event.target.value, 'Priority', 'contains')" placeholder="" class="p-column-filter">
+                        </th>
+                        <th>
+                            <input style="width:100%" pInputText type="text" (input)="dt.filter($event.target.value, 'DisplayTag', 'contains')" placeholder="" class="p-column-filter">
+                        </th>
+                        <th>
+                            <input style="width:100%" pInputText type="text" (input)="dt.filter($event.target.value, 'ScreenpopHeader', 'contains')" placeholder="" class="p-column-filter">
+                        </th>
+                        <th>
+                            <input style="width:100%" pInputText type="text" (input)="dt.filter($event.target.value, 'DisplayType', 'contains')" placeholder="" class="p-column-filter">
+                        </th>
+                        <th></th>
+                        <th></th>
+                    </tr>
+                </ng-template>
+                <ng-template pTemplate="body" let-i="rowIndex" let-rowData>
+                    <tr>
+                        <td>{{rowData.businessUnitDisplayID}}</td>
+                        <td>{{rowData.Priority}}</td>
+                        <td>{{rowData.DisplayTag}}</td>
+                        <td>{{rowData.ScreenpopHeader}}</td>
+                        <td><a style="float:left;color: blue" *ngIf="rowData.DisplayType === 'HTML Screen Pop'"
+                            href="{{wizardURL}}/ScreenPopWizard/CCSDTWorkflowWizard.application?business_unit_display_id={{rowData.businessUnitDisplayID}}&business_unit_id={{rowData.business_unit_id}}">
+                             {{rowData.DisplayType}}
+                         </a>
+                         <span *ngIf="rowData.DisplayType != 'HTML Screen Pop'"> {{rowData.DisplayType}} </span>
+                        </td>
+                        <td>
+                            
+                            <p-toggleButton [(ngModel)]="rowData.IsActive" (onChange)="handleChange(rowData,$event,i)" onLabel="ON" offLabel="OFF" onIcon="fa-check-square" offIcon="fa-square" [style]="{'width':'80px'}"></p-toggleButton>
+                        </td>
+                        <td>
+                            <button title="Edit" *ngIf="addButtonVisible  == true" pButton pRipple icon="pi pi-pencil" class="p-button-rounded p-button-success p-mr-2" (click)="ShowEditDialog(rowData,i,'Edit')"></button>
+                            <button title="Delete" *ngIf="addButtonVisible  == true" pButton pRipple icon="pi pi-trash" class="p-button-rounded p-button-warning" (click)="showDeleteConfirmation(rowData,i,'screenpop')"></button>
+
+                            <button title="Select" *ngIf="addButtonVisible  == true" pButton pRipple icon="pi pi-window-maximize" class="p-button-rounded p-button-primary" (click)="showDialogToAdd(rowData,i,'Select')"></button>
+                            
+                            
+    
+                        </td>
+                    </tr>
+                </ng-template>  
+               
+                <!-- <p-column [style]="{'width':'70px'}">
+                    <ng-template let-h="rowData" pTemplate="body" let-i="rowIndex">
+                        <a style="float:left;color: blue" (click)="ShowEditDialog(h,i,'Edit')" *ngIf="addButtonVisible  == true">Edit</a>
+                    </ng-template>
+                </p-column>
+                <p-column [style]="{'width':'70px'}">
+                    <ng-template let-h="rowData" pTemplate="body" let-i="rowIndex">
+                        <a style="float:left;color: blue" *ngIf="addButtonVisible  == true" (click)="showDeleteConfirmation(h,i,'screenpop')">Delete</a>
+                    </ng-template>
+                </p-column>
+                <p-column [style]="{'width':'80px'}">
+                    <ng-template let-h="rowData" pTemplate="body" let-i="rowIndex">
+                        <a style="float:left;color: blue" (click)="showDialogToAdd(h,i,'Select')" *ngIf="selectButtonVisible  == true">Select</a>
+                    </ng-template>
+                </p-column>
+
+                <p-column [style]="{'width':'100px'}" field="businessUnitDisplayID" header="businessUnitDisplayID" [sortable]="true" [filter]="true"></p-column>
+                <p-column [style]="{'width':'100px'}" field="Priority" header="Priority" [sortable]="true" [filter]="true"></p-column>
+                <p-column field="DisplayTag" header="Display Tag" [sortable]="true" [filter]="true"></p-column>
+                <p-column field="ScreenpopHeader" header="Screenpop Header" [sortable]="true" [filter]="true"></p-column>
+                <p-column field="DisplayType" header="Display Type" [sortable]="true" [filter]="true">
+                    <ng-template let-row="rowData" pTemplate type="body">
+                        <a style="float:left;color: blue" *ngIf="row.DisplayType === 'HTML Screen Pop'"
+                           href="{{wizardURL}}/ScreenPopWizard/CCSDTWorkflowWizard.application?business_unit_display_id={{row.businessUnitDisplayID}}&business_unit_id={{row.business_unit_id}}">
+                            {{row.DisplayType}}
+                        </a>
+                        <span *ngIf="row.DisplayType != 'HTML Screen Pop'"> {{row.DisplayType}} </span>
+                    </ng-template>
+                </p-column>
+                <p-column [style]="{'width':'100px'}" header="Active" [sortable]="true" [filter]="true">
+                    <ng-template let-h="rowData" pTemplate="body" let-i="rowIndex">
+                        <p-toggleButton [(ngModel)]="h['IsActive']" (onChange)="handleChange(h,$event,i)" onLabel="ON" offLabel="OFF" onIcon="fa-check-square" offIcon="fa-square" [style]="{'width':'80px'}"></p-toggleButton>
+                    </ng-template>
+                </p-column> -->
+                
+                <ng-template pTemplate="summary">
+                    <div class="p-d-flex p-ai-center p-jc-between">
+
+                       <button type="button" pButton *ngIf="NewbuttonVisible"  (click)="ShowNewDialog()" label="New"></button>
+                        <button type="button" pButton *ngIf="InsertbuttonVisible" style="margin-left: 5px;" label="Import"></button>
+                    </div>
+                </ng-template>
+            </p-table>
+        </div>
+    </p-panel>
+    <p-panel>
+        <div style="word-wrap: break-word;" [hidden]="addScreenpopCriteriaDialog">
+            <p-table [value]="screenPopsCriteria" [paginator]="true" rows="10" [alwaysShowPaginator]="false" selectionMode="none" [(selection)]="selectedRows" scrollable="true" scrollHeight="150px" (onPageChange)="paginate($event)" scrollWidth="autocomplete">
+                <ng-template pTemplate="caption">
+                    <div class="table-header">
+                        Screen Pop Criteria
+                    </div>
+                </ng-template>
+                <ng-template pTemplate="header">
+                    <tr>
+                        <th >Index </th>
+                        <th >SourceType </th>
+                        <th >Screen Pop Selection Criteria </th>
+                        <th >Operator </th>
+                        <th >Conditional </th>
+                        <th >Call Values </th>
+                        <th >Actions </th>
+                    </tr>
+                </ng-template>
+                <ng-template pTemplate="body" let-i="rowIndex" let-h="rowData" let-car>
+                    <tr>
+                        <td>{{car.Index}}</td>
+                        <td>{{car.SourceType.label}}</td>
+                        <td>{{car.valueTypeText}}</td>
+                        <td>{{car.Operator.label}}</td>
+                        <td>{{car.Conditional.label}}</td>
+                        <td>{{car.ValueText}}</td>
+                        
+                        <td>
+                            <button title="Edit" *ngIf="addButtonVisible  == true" pButton pRipple icon="pi pi-pencil" class="p-button-rounded p-button-success p-mr-2" (click)="editCriteriaDialog(car,i,'Edit')"></button>
+                            <button title="Delete" *ngIf="addButtonVisible  == true" pButton pRipple icon="pi pi-trash" class="p-button-rounded p-button-warning" (click)="showDeleteConfirmation(car,i,'screenpop')"></button>
+
+                            <button title="Select" *ngIf="addButtonVisible  == true" pButton pRipple icon="pi pi-window-maximize" class="p-button-rounded p-button-primary" (click)="showDialogToAdd(car,i,'Select')"></button>
+                            
+                        </td>
+                    </tr>
+                </ng-template>  
+
+                <!-- <p-column [style]="{'width':'80px'}">
+                    <ng-template let-h="rowData" pTemplate="body" let-i="rowIndex">
+                        <a style="float:left;color: blue" (click)="editCriteriaDialog(h,i,'Edit')" *ngIf="addButtonVisible  == true">Edit</a>
+                    </ng-template>
+                </p-column>
+                <p-column [style]="{'width':'80px'}">
+                    <ng-template let-h="rowData" pTemplate="body" let-i="rowIndex">
+                        <a style="float:left;color: blue" *ngIf="addButtonVisible  == true" (click)="showDeleteConfirmation(h,i,'criteria')">Delete</a>
+    
+                    </ng-template>
+                </p-column>
+                <p-column [style]="{'width':'80px'}" field="Index" header="Index" [sortable]="true" [filter]="true"></p-column>
+                <p-column [style]="{'width':'130px'}" field="SourceType.label" header="SourceType" [sortable]="true" [filter]="true"></p-column>
+                <p-column [style]="{'width':'240px'}" field="valueTypeText" header="Screen Pop Selection Criteria" [sortable]="true" [filter]="true"></p-column>
+                <p-column [style]="{'width':'130px'}" field="Operator.label" header="Operator" [sortable]="true" [filter]="true">  </p-column>
+                <p-column [style]="{'width':'130px'}" field="Conditional.label" header="Conditional" [sortable]="true" [filter]="true"></p-column>
+                <p-column field="ValueText" header="Call Values" [sortable]="true" [filter]="true"></p-column> -->
+    
+                <ng-template pTemplate="summary">
+                    <div class="p-d-flex p-ai-center p-jc-between">
+                        <button type="button" pButton label="New" (click)="createNewSPCriteria()"></button>
+                    </div>
+                </ng-template>
+            </p-table>
+    
+        </div>
+    </p-panel>
+    
+    <p-dialog [header]="EditHeader" [style]="{width: '50vw'}" [(visible)]="editDialog" *ngIf="editDialog" [responsive]="true" showEffect="fade" [modal]="true">
+        <form #editUserForm="ngForm" (ngSubmit)="editUser(editUserForm)" autocomplete="off" novalidate>
+    
+            <div [ngClass]="{'error': editUserForm.controls.DisplayTag?.invalid && editUserForm.controls.DisplayTag?.touched}">
+                <label for="DisplayTag" style="color:red">Display Tag:</label>
+                <em *ngIf="editUserForm.controls.DisplayTag?.invalid && (editUserForm.controls.DisplayTag?.touched )">Required</em>
+                <input [ngModel]="screenPop.DisplayTag" name="DisplayTag" required id="DisplayTag" type="text" class="form-control" />
+            </div>
+            <div class="form-group">
+                <label for="ScreenpopHeader">Screen pop Header:</label>
+                <input [ngModel]="screenPop.ScreenpopHeader" name="ScreenpopHeader" id="ScreenpopHeader" type="text" class="form-control" />
+            </div>
+            <div class="form-group" [ngClass]="{'error': editUserForm.controls.DisplayType?.invalid && editUserForm.controls.DisplayType?.touched}">
+                <label for="DisplayType">Screen pop Type:</label>
+                <em *ngIf="editUserForm.controls.DisplayType?.invalid && (editUserForm.controls.DisplayType?.touched )">Required</em>
+                <input [ngModel]="screenPop.DisplayType" disabled="true" name="DisplayType" required id="DisplayType" type="text" class="form-control" />
+            </div>
+            <div class="form-group" *ngIf="screenPop.DisplayType==='Case Data'">
+                <label for="CaseDataDisplayHeader">Case Data Display Header:</label>
+                <input [ngModel]="screenPop.display_header" name="CaseDataDisplayHeader" id="CaseDataDisplayHeader" type="text" class="form-control" />
+            </div>
+            <div class="form-group" *ngIf="screenPop.DisplayType==='Case Data'">
+                <label for="CaseDataDisplaySubHeader">Case Data Display SubHeader:</label>
+                <input [ngModel]="screenPop.display_subheader" name="CaseDataDisplaySubHeader" id="CaseDataDisplaySubHeader" type="text" class="form-control" />
+            </div>
+            <div class="form-group" [ngClass]="{'error': editUserForm.controls.Group?.invalid && editUserForm.controls.Group?.touched}">
+                <label for="Group" style="color:red">Group:</label>
+                <em *ngIf="editUserForm.controls.Group?.invalid && (editUserForm.controls.Group?.touched )">Required</em>
+                <input [ngModel]="screenPop.Group" (keypress)="editkeyPress($event)" maxlength="3" name="Group" required id="Group" type="number" class="form-control" />
+            </div>
+    
+            <div class="form-group" [ngClass]="{'error': editUserForm.controls.Priority?.invalid && editUserForm.controls.Priority?.touched}">
+                <label for="Priority">Priority:</label>
+                <em *ngIf="editUserForm.controls.Priority?.invalid && (editUserForm.controls.Priority?.touched )">Required</em>
+                <p-dropdown [options]="prioritynumberList" name="Priority" [ngModel]="screenPop.Priority" [style]="{'width':'100%'}"></p-dropdown>
+            </div>
+            <div class="form-UDA" *ngIf="editedUDA" [ngClass]="{'error': editUserForm.controls.UDA?.invalid && editUserForm.controls.UDA?.touched}">
+                <label for="UDA">URL Display address:</label>
+    
+                <input [ngModel]="screenPop.URL_display_address_txt" name="UDA" type="text" class="form-control" />
+            </div>
+            <div class="form-DSConn" *ngIf="editedDSConn" [ngClass]="{'error': editUserForm.controls.DSConn?.invalid && editUserForm.controls.DSConn?.touched}">
+                <label for="DSConn">Data Source Connection:</label>
+    
+                <textarea [ngModel]="screenPop.data_source_connection_txt" name="DSConn" type="text" class="form-control"></textarea>
+            </div>
+            <div class="form-DSComm" *ngIf="editedDSComm" [ngClass]="{'error': editUserForm.controls.DSComm?.invalid && editUserForm.controls.DSComm?.touched}">
+                <label for="DSComm">Data Source Command:</label>
+    
+                <textarea [ngModel]="screenPop.data_source_command_txt" name="DSComm" type="text" class="form-control"></textarea>
+            </div>
+            <div class="form-DSCI" *ngIf="editedDSCI" [ngClass]="{'error': editUserForm.controls.DSCI?.invalid && editUserForm.controls.DSCI?.touched}">
+                <label for="DSCI">Data Source Command Input:</label>
+    
+                <textarea [ngModel]="screenPop.data_source_command_input_txt" name="DSCI" type="text" class="form-control"></textarea>
+            </div>
+            <div class="form-group1">
+                <label for="cendropdown1">Trigger Event:</label>
+                <p-dropdown [options]="CENS" name="cendropdown1" [ngModel]="selectedCEN" [style]="{'width':'100%'}" optionLabel="name"></p-dropdown>
+            </div>
+    
+            <div class="form-XSLT" *ngIf="editedXSLT" [ngClass]="{'error': editUserForm.controls.XSLT?.invalid && editUserForm.controls.XSLT?.touched}">
+                <label for="XSLT">XSLT File Transform:</label>
+    
+                <p-fileUpload name="XSLTuploadedFiles[]" customUpload="true" auto="true" onRemove="OnFileRemove($event)" onClear="OnFileClear($event)" (uploadHandler)="myUploaderXSLT($event)" accept=".xml" maxFileSize="1000000">
+    
+                    <ng-template let-file pTemplate="file">
+                        <div *ngIf="XSLTFilename">
+                            <ul *ngIf="uploadedFilesXSLT.length">
+                                <li *ngFor="let file of uploadedFilesXSLT">{{file.name}} - {{file.size}} bytes</li>
+                            </ul>
+                        </div>
+                    </ng-template>
+                    <ng-template pTemplate="content">
+                        <button pButton type="button" [disabled]='HasXSLT' style="margin-left: 300px" (click)="ClearXSLT()" label="ClearFromDB"></button>
+                        <button pButton type="button" [disabled]='HasXSLT' label="View" (click)="ViewXSLT()"></button>
+                    </ng-template>
+    
+                </p-fileUpload>
+            </div>
+            <div class="form-XSLTR" *ngIf="editedXSLTR" [ngClass]="{'error': editUserForm.controls.XSLTR?.invalid && editUserForm.controls.XSLTR?.touched}">
+                <label for="XSLTR">XSLT File Tranform Reply:</label>
+    
+                <p-fileUpload name="XSLTRuploadedFiles[]" customUpload="true" auto="true" (uploadHandler)="myUploaderXSLTR($event)" accept=".xml" maxFileSize="1000000">
+                    <ng-template let-file pTemplate="file">
+                        <div *ngIf="XSLTRFilename">
+                            <ul *ngIf="uploadedFilesXSLTR.length">
+                                <li *ngFor="let file of uploadedFilesXSLTR">{{file.name}} - {{file.size}} bytes</li>
+                            </ul>
+                        </div>
+                    </ng-template>
+                    <ng-template pTemplate="content">
+                        <button pButton type="button" [disabled]='HasXSLTR' style="margin-left: 300px" (click)="ClearXSLTR()" label="ClearFromDB"></button>
+                        <button pButton type="button" [disabled]='HasXSLTR' label="View" (click)="ViewXSLTR()"></button>
+                    </ng-template>
+                </p-fileUpload>
+    
+            </div>
+    
+            <div class="form-group" *ngIf="Application" [ngClass]="{'error': editUserForm.controls.Application?.invalid && editUserForm.controls.Application?.touched }">
+                <label for="Application">Select Application:</label>
+                <p-dropdown name="Application" [style]="{'width':'100%'}"></p-dropdown>
+            </div>
+            <div class="form-group" *ngIf="ShowScreenpopxoml" [ngClass]="{'error': editUserForm.controls.Screenpopxoml?.invalid && editUserForm.controls.Screenpopxoml?.touched}">
+                <label for="Screenpopxoml">ScreenPop XOML:</label>
+    
+                <textarea [ngModel]="screenPop.Screenpopxoml" style="height:100px " name="Screenpopxoml" type="text" class="form-control"></textarea>
+            </div>
+            <div class="form-group" [ngClass]="{'error': editUserForm.controls.Greetings?.invalid && editUserForm.controls.Greetings?.touched}">
+                <label for="Greetings">Screen pop text script:</label>
+    
+                <textarea [ngModel]="screenPop.Greetings" style="height:100px " name="Greetings" type="text" class="form-control"></textarea>
+            </div>
+            <div style="padding-left: 450px" *ngIf="ShowDownloadbutton">
+                <p-button (onClick)="Download()" label="Download"></p-button>
+    
+            </div>
+            <br />
+            <br />
+            <span>
+    
+                <button type="submit" class="btn btn-default" [disabled]="editUserForm.invalid">Update</button>
+                <button type="button" class="btn btn-default" (click)="cancelEdit()">Cancel</button>
+                <button type="button" class="btn btn-default" (click)="Duplicate()">Duplicate</button>
+            </span>
+            <br />
+            <br />
+    
+        </form>
+    
+    </p-dialog>
+    <p-dialog [style]="{width: '50vw'}" [(visible)]="ShowXSLT" [responsive]="true" showEffect="fade" [modal]="true">
+        <pre>{{screenPop.xslt_transform_file}}</pre>
+    </p-dialog>
+    <p-dialog [style]="{width: '50vw'}" [(visible)]="ShowXSLTR" [responsive]="true" showEffect="fade" [modal]="true">
+        <pre> {{screenPop.xslt_transform_file_reply}}</pre>
+    </p-dialog>
+    
+    
+    <p-dialog [style]="{width: '50vw'}" [(visible)]="XSLTFileUploaded" [responsive]="true" showEffect="fade" [modal]="true">
+        <pre>{{'Do you want to Upload the File'}}</pre>
+        <button type="button" class="btn btn-default" (click)="YesXSLT()">Yes</button>
+        <button type="button" class="btn btn-default" (click)="NoXSLT()">No</button>
+    </p-dialog>
+    
+    <p-dialog [style]="{width: '50vw'}" [(visible)]="XSLTRFileUploaded" [responsive]="true" showEffect="fade" [modal]="true">
+        <pre>{{'Do you want to Upload the File'}}</pre>
+        <button type="button" class="btn btn-default" (click)="YesXSLTR()">Yes</button>
+        <button type="button" class="btn btn-default" (click)="NoXSLTR()">No</button>
+    </p-dialog>
+    
+    <p-dialog [style]="{width: '50vw'}" [(visible)]="ClearXSLTFileUploaded" [responsive]="true" showEffect="fade" [modal]="true">
+    
+    
+        <pre>{{'Do you want to Clear the File from DB'}}</pre>
+    
+        <button type="button" class="btn btn-default" (click)="YesClearXSLT()">Yes</button>
+        <button type="button" class="btn btn-default" (click)="NoClearXSLT()">No</button>
+    </p-dialog>
+    
+    <p-dialog [style]="{width: '50vw'}" [(visible)]="ClearXSLTRFileUploaded" [responsive]="true" showEffect="fade" [modal]="true">
+    
+    
+        <pre>{{'Do you want to Clear the File from DB'}}</pre>
+    
+        <button type="button" class="btn btn-default" (click)="YesClearXSLTR()">Yes</button>
+        <button type="button" class="btn btn-default" (click)="NoClearXSLTR()">No</button>
+    </p-dialog>
+    <p-dialog [style]="{width: '50vw'}" [(visible)]="ClearedFromDBStatus" [responsive]="true" showEffect="fade" [modal]="true">
+    
+    
+        <pre>{{'Cleared from DB Successfully'}}</pre>
+    
+        <button type="button" class="btn btn-default" (click)="ClearXSLTRStatus()">OK</button>
+    </p-dialog>
+    <p-dialog [style]="{width: '50vw'}" [(visible)]="DuplicateStatus" [responsive]="true" showEffect="fade" [modal]="true">
+    
+    
+        <pre>{{'Duplicate ScreenPop has been added'}}</pre>
+    
+        <button type="button" class="btn btn-default" (click)="DuplicateOk()">OK</button>
+    </p-dialog>
+    
+    <p-dialog [style]="{width: '50vw'}" [(visible)]="InsertStatus" [responsive]="true" showEffect="fade" [modal]="true">
+    
+    
+        <pre>{{'ScreenPop has been added Successfully'}}</pre>
+    
+        <button type="button" class="btn btn-default" (click)="InsertOk()">OK</button>
+    </p-dialog>
+    
+    
+    <p-dialog [header]="NewHeader" [style]="{width: '50vw'}" [(visible)]="NewDialog" [responsive]="true" showEffect="fade" [modal]="true">
+    
+        <form #NewUserForm="ngForm" (ngSubmit)="NewUser(NewUserForm)" autocomplete="off" novalidate>
+    
+            <div class="form-group" [ngClass]="{'error': NewUserForm.controls.DisplayTag?.invalid && NewUserForm.controls.DisplayTag?.touched}">
+                <label for="DisplayTag" style="color:red">Display Tag:</label>
+                <em *ngIf="NewUserForm.controls.DisplayTag?.invalid && (NewUserForm.controls.DisplayTag?.touched )">Required</em>
+                <input [(ngModel)]="NewscreenPop.DisplayTag" name="DisplayTag" required id="DisplayTag" type="text" class="form-control" />
+            </div>
+            <div class="form-group" [ngClass]="{'error': NewUserForm.controls.ScreenpopHeader?.invalid && NewUserForm.controls.ScreenpopHeader?.touched}">
+                <label for="ScreenpopHeader">Screen pop Header:</label>
+                <input [(ngModel)]="NewscreenPop.ScreenpopHeader" name="ScreenpopHeader" id="ScreenpopHeader" type="text" class="form-control" />
+            </div>
+            <!--<div class="form-group" [ngClass]="{'error': NewUserForm.controls.DisplayType?.invalid && NewUserForm.controls.DisplayType?.touched}">
+                            <label for="DisplayType">Screen pop Type:</label>
+                            <em *ngIf="NewUserForm.controls.DisplayType?.invalid && (NewUserForm.controls.DisplayType?.touched )">Required</em>
+                            <input [(ngModel)]="NewscreenPop.DisplayType" disabled= "true" name="DisplayType" required id="DisplayType" type="text" class="form-control"  />
+                        </div>-->
+    
+            <div class="form-group" [ngClass]="{'error': NewUserForm.controls.DisplayType?.invalid && NewUserForm.controls.DisplayType?.touched }">
+                <label for="SCPS">Screen pop Type:</label>
+                <em *ngIf="NewUserForm.controls.DisplayType?.invalid && (NewUserForm.controls.DisplayType?.touched || mouseoverLogin === true)">Required</em>
+                <!--(ngModel)="agentRole"-->
+    
+                <p-dropdown [options]="SCPS" name="scpdropdown" [(ngModel)]="selectedSCP" [style]="{'width':'100%'}" (onChange)="ScpTypeChange($event)" optionLabel="name"></p-dropdown>
+    
+    
+            </div>
+            <div class="form-group" *ngIf="NewscreenPop.DisplayType==='Case Data'">
+                <label for="CaseDataDisplayHeader">Case Data Display Header:</label>
+                <input [(ngModel)]="NewscreenPop.display_header" name="newCaseDataDisplayHeader" id="newCaseDataDisplayHeader" type="text" class="form-control" />
+            </div>
+            <div class="form-group" *ngIf="NewscreenPop.DisplayType==='Case Data'">
+                <label for="CaseDataDisplaySubHeader">Case Data Display SubHeader:</label>
+                <input [(ngModel)]="NewscreenPop.display_subheader" name="newCaseDataDisplaySubHeader" id="newCaseDataDisplaySubHeader" type="text" class="form-control" />
+            </div>
+            <div class="form-group" [ngClass]="{'error': NewUserForm.controls.Group?.invalid && NewUserForm.controls.Group?.touched}">
+                <label for="Group" style="color:red">Group:</label>
+                <em *ngIf="NewUserForm.controls.Group?.invalid && (NewUserForm.controls.Group?.touched )">Required</em>
+                <input [(ngModel)]="NewscreenPop.Group" (keypress)="NewkeyPress($event)" maxlength="3" name="Group" required id="Group" type="number" class="form-control" />
+            </div>
+    
+            <div class="form-group" [ngClass]="{'error': NewUserForm.controls.Priority?.invalid && NewUserForm.controls.Priority?.touched}">
+                <label for="Priority">Priority:</label>
+                <em *ngIf="NewUserForm.controls.Priority?.invalid && (NewUserForm.controls.Priority?.touched )">Required</em>
+                <p-dropdown [options]="prioritynumberList" name="Newprioritydropdown" [(ngModel)]="NewscreenPop.Priority" [style]="{'width':'100%'}"></p-dropdown>
+    
+    
+            </div>
+    
+    
+            <div class="form-group" *ngIf="NewUDA" [ngClass]="{'error': NewUserForm.controls.UDA?.invalid && NewUserForm.controls.UDA?.touched}">
+                <label for="UDA">URL Display address:</label>
+    
+                <input [(ngModel)]="NewscreenPop.URL_display_address_txt" name="UDA" type="text" class="form-control" />
+            </div>
+            <div class="form-group" *ngIf="NewDSConn" [ngClass]="{'error': NewUserForm.controls.DSConn?.invalid && NewUserForm.controls.DSConn?.touched}">
+                <label for="DSConn">Data Source Connection:</label>
+    
+                <textarea [(ngModel)]="NewscreenPop.data_source_connection_txt" name="DSConn" type="text" class="form-control"></textarea>
+            </div>
+            <div class="form-group" *ngIf="NewDSComm" [ngClass]="{'error': NewUserForm.controls.DSComm?.invalid && NewUserForm.controls.DSComm?.touched}">
+                <label for="DSComm">Data Source Command:</label>
+    
+                <textarea [(ngModel)]="NewscreenPop.data_source_command_txt" name="DSComm" type="text" class="form-control"></textarea>
+            </div>
+            <div class="form-group" *ngIf="NewDSCI" [ngClass]="{'error': NewUserForm.controls.DSCI?.invalid && NewUserForm.controls.DSCI?.touched}">
+                <label for="DSCI">Data Source Command Input:</label>
+    
+                <textarea [(ngModel)]="NewscreenPop.data_source_command_input_txt" name="DSCI" type="text" class="form-control"></textarea>
+            </div>
+            <div class="form-group">
+                <label for="cendropdown">Trigger Event:</label>
+    
+                <p-dropdown [options]="CENS" name="cendropdown" [(ngModel)]="selectedNewCen" [style]="{'width':'100%'}" (onChange)="CenChange($event)" optionLabel="name"></p-dropdown>
+            </div>
+    
+            <div class="form-group" *ngIf="NewXSLT" [ngClass]="{'error': NewUserForm.controls.XSLT?.invalid && NewUserForm.controls.XSLT?.touched}">
+                <label for="NewXSLT">XSLT File Transform:</label>
+    
+                <p-fileUpload name="NewXSLTuploadedFiles[]" customUpload="true" auto="true" (uploadHandler)="NewmyUploaderXSLT($event)" accept=".xml" maxFileSize="1000000">
+    
+                    <ng-template let-file pTemplate="file">
+                        <div *ngIf="NewXSLTFilename">
+                            <ul *ngIf="NewuploadedFilesXSLT.length">
+                                <li *ngFor="let file of NewuploadedFilesXSLT">{{file.name}} - {{file.size}} bytes</li>
+                            </ul>
+                        </div>
+                    </ng-template>
+                    <ng-template pTemplate="content">
+                        <button pButton type="button" style="margin-left: 300px" (click)="NewClearXSLT()" label="Clear"></button>
+                    </ng-template>
+    
+                </p-fileUpload>
+            </div>
+            <div class="form-XSLTR" *ngIf="NewXSLTR" [ngClass]="{'error': NewUserForm.controls.XSLTR?.invalid && NewUserForm.controls.XSLTR?.touched}">
+                <label for="NewXSLTR">XSLT File Tranform Reply:</label>
+    
+                <p-fileUpload name="NewXSLTRuploadedFiles[]" customUpload="true" auto="true" (uploadHandler)="NewmyUploaderXSLTR($event)" accept=".xml" maxFileSize="1000000">
+                    <ng-template let-file pTemplate="file">
+                        <div *ngIf="NewXSLTRFilename">
+                            <ul *ngIf="NewuploadedFilesXSLTR.length">
+                                <li *ngFor="let file of NewuploadedFilesXSLTR">{{file.name}} - {{file.size}} bytes</li>
+                            </ul>
+                        </div>
+                    </ng-template>
+                    <ng-template pTemplate="content">
+                        <button pButton type="button" style="margin-left: 300px" (click)="NewClearXSLTR()" label="Clear"></button>
+                    </ng-template>
+    
+                </p-fileUpload>
+    
+            </div>
+    
+            <div class="form-group" *ngIf="NewApplication" [ngClass]="{'error': NewUserForm.controls.NewApplication?.invalid && NewUserForm.controls.NewApplication?.touched }">
+                <label for="NewApplication">Select Application:</label>
+                <p-dropdown name="NewApplication" [style]="{'width':'100%'}"></p-dropdown>
+    
+    
+            </div>
+            <div class="form-group" *ngIf="NewShowScreenpopxoml" [ngClass]="{'error': NewUserForm.controls.Screenpopxoml?.invalid && NewUserForm.controls.Screenpopxoml?.touched}">
+                <label for="Screenpopxoml">ScreenPop XOML:</label>
+    
+                <textarea [(ngModel)]="NewscreenPop.Screenpopxoml" style="height:100px " name="Screenpopxoml" type="text" class="form-control"></textarea>
+    
+    
+            </div>
+            <div class="form-group" *ngIf="true" [ngClass]="{'error': NewUserForm.controls.Screenpoptextscript?.invalid && NewUserForm.controls.Screenpoptextscript?.touched}">
+                <label for="Screenpoptextscript">Screen pop text script:</label>
+    
+                <textarea [(ngModel)]="NewscreenPop.Greetings" style="height:100px " name="Screenpoptextscript" type="text" class="form-control"></textarea>
+    
+    
+            </div>
+            <!--<div style="padding-left: 450px" *ngIf="NewShowDownloadbutton">
+                        <p-button (onClick)="NewDownload()" label="Download"></p-button>
+    
+                    </div>-->
+            <br />
+            <br />
+    
+    
+            <span>
+    
+                <button type="submit" class="btn btn-default" [disabled]="NewUserForm.invalid">Insert</button>
+                <button type="button" class="btn btn-default" (click)="NewcancelEdit()">Cancel</button>
+            </span>
+            <br />
+            <br />
+    
+        </form>
+    
+    </p-dialog>
+    
+    <p-dialog [style]="{width: '50vw'}" [(visible)]="ShowXSLT" [responsive]="true" showEffect="fade" [modal]="true">
+        <pre>{{NewscreenPop.xslt_transform_file}}</pre>
+    </p-dialog>
+    
+    <p-dialog [style]="{width: '50vw'}" [(visible)]="ShowXSLTR" [responsive]="true" showEffect="fade" [modal]="true">
+        <pre> {{NewscreenPop.xslt_transform_file_reply}}</pre>
+    </p-dialog>
+    
+    
+    <p-dialog [style]="{width: '50vw'}" [(visible)]="NewXSLTFileUploaded" [responsive]="true" showEffect="fade" [modal]="true">
+        <pre>{{'Do you want to Upload the File'}}</pre>
+        <button type="button" class="btn btn-default" (click)="NewYesXSLT()">Yes</button>
+        <button type="button" class="btn btn-default" (click)="NewNoXSLT()">No</button>
+    
+    
+    </p-dialog>
+    
+    <p-dialog [style]="{width: '50vw'}" [(visible)]="NewXSLTRFileUploaded" [responsive]="true" showEffect="fade" [modal]="true">
+    
+    
+        <pre>{{'Do you want to Upload the File'}}</pre>
+    
+        <button type="button" class="btn btn-default" (click)="NewYesXSLTR()">Yes</button>
+        <button type="button" class="btn btn-default" (click)="NewNoXSLTR()">No</button>
+    </p-dialog>
+    <p-dialog [style]="{width: '50vw'}" [(visible)]="confirmDeleteDialog" [responsive]="true" showEffect="fade" [modal]="true">
+    
+    
+        <pre>{{'Do you want to Delete the record?'}}</pre>
+    
+        <button type="button" class="btn btn-default" (click)="DeleteRecord()">Yes</button>
+        <button type="button" class="btn btn-default" (click)="NewcancelEdit()">No/Cancel</button>
+    </p-dialog>
+    <p-dialog [style]="{width: '50vw'}" [(visible)]="NewSPCriteriaDialog" [responsive]="true" showEffect="fade" [modal]="true">
+        <form #NewSPCriteriaForm="ngForm" (ngSubmit)="addCriteria()" autocomplete="off" novalidate>
+            <div class="form-group">
+                <label for="SPCIndex"> Index:</label>
+                <input type="text" [(ngModel)]="newScreenPopsCriteria.Index" name="SPCIndex" id="SPCIndex" class="form-control" disabled />
+            </div>
+            <div class="form-group">
+                <label for="valueTypeText"> Screen Pop Selection Criteria:</label>
+                <input [(ngModel)]="newScreenPopsCriteria.valueTypeText" name="valueTypeText" id="valueTypeText" type="text" class="form-control" />
+            </div>
+            <div class="form-group">
+                <label for="ValueText"> Call Values:</label>
+                <input [(ngModel)]="newScreenPopsCriteria.ValueText" name="ValueText" id="ValueText" type="text" class="form-control" />
+            </div>
+            <div class="form-group">
+                <label for="Conditional">Conditional:</label>
+                <p-dropdown [options]="SPConditional" name="Conditional" [(ngModel)]="newScreenPopsCriteria.Conditional" optionLabel="label" [style]="{'width':'100%'}"></p-dropdown>
+            </div>
+            <div class="form-group">
+                <label for="Operator">Conditional Operator:</label>
+                <p-dropdown [options]="SPOperator" name="Operator" [(ngModel)]="newScreenPopsCriteria.Operator" optionLabel="label" [style]="{'width':'100%'}"></p-dropdown>
+            </div>
+            <div class="form-group">
+                <label for="SourceType">Source Type:</label>
+                <p-dropdown [options]="SPSourceType" name="SourceType" [(ngModel)]="newScreenPopsCriteria.SourceType" optionLabel="label" [style]="{'width':'100%'}"></p-dropdown>
+            </div>
+            <br /> <br />
+            <span>
+                <button type="submit" class="btn btn-default" [disabled]="NewSPCriteriaForm.invalid">Insert/Update</button>
+                <button type="button" class="btn btn-default" (click)="NewcancelEdit()">Cancel</button>
+            </span> <br /><br />
+        </form>
+    </p-dialog>

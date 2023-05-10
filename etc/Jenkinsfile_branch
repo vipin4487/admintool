@@ -1,0 +1,612 @@
+#!/usr/bin/env groovy
+
+//Script for MSBuild and Deployment for DEV2 ENVIRONMENT
+
+def configRoutingFileName = "configWWEFile.json"
+def configRoutingFileObject1
+appName=""
+deployEnvironment="DEV"
+
+//Checkout
+modifiedFolders = []
+modifiedAllFolders = []
+modifiedFiles=""
+fullFileList=""
+modifiedFinalFolder=""
+
+//Build Stage Status
+checkoutStatus="SKIPPED"
+tagStatus="SKIPPED"
+buildStatus="SKIPPED"
+artifactoryStatus="SKIPPED"
+deployStatus="SKIPPED"
+taggingStatus="SKIPPED"
+
+//Windows Build related
+def cleanupStatus
+def publishFolder = ""
+def emailContent = ""
+def targetBuildArtifacts
+def etcFolderStatus=false
+def modifiedFileChanges = "modifiedFileChanges.txt"
+
+//Build Related
+npmCommand=""
+buildCommand=""
+ngTargetDistFolder=""
+PublishProfileLeading=""
+PublishProfileTrailing=""
+PublishURL=""
+workSpaceTempFolder=""
+pipelineScriptFolder=""
+
+//Server Details
+dotFolder=""
+serverTypeCore=""
+serverTypeDMZ=""
+targetServerFolder=""
+configLocation=""
+lobServerTypeMappingFile=""
+def configObject
+def lobConfigObject
+targetDeployServer=""
+
+//XLDeploy
+cred=""
+def manifest
+manifestXML=""
+XLDeployBaseApiUrl=""
+XLDeployInputParam_ID=""
+XLDeployInputParam_IDLeadingPath=""
+XLDeployInputParam_IDType=""
+XLDeployInputParam_pipeline=""
+XLDeployInputParam_pipelineLeadingPath=""
+XLDeployFullAppStatusURL=""
+checkXLApplicationExistsStatus="SKIPPED"
+createXLDeployManifestXMLFileStatus="SKIPPED"
+createXLDeployDarPackageStatus="SKIPPED"
+publishXLDeployDarPackageStatus="SKIPPED"
+DeployXLDeployDarPackageToServerStatus="SKIPPED"
+XLDeployCredentials_ID=""
+XLDeployEnvironmentIDLeadingPath=""
+XLDeployEnvironmentIDFullPath=""
+packageDefaultSleepTime=20
+packagePublishSleepTime=60
+packagePublishSleepTimeUnit="SECONDS"
+
+//Jfrog Artifacts
+artifactoryServerID=""
+artifactoryUserID=""
+artifactoryBaseURL=""
+artifactorySnapshotBasePath=""
+artifactoryReleaseBasePath=""
+artifactoryVirtualPath=""
+artifactoryProjectPath=""
+patternDetails=""
+targetDetails=""
+
+//Git
+def tag
+tagLimit=20
+def performTagging=true
+
+//Input Related
+inputTimeLimit=5
+inputTimeLimitUnit="MINUTES"
+def folderList
+applicationToDeploy=""
+tagToDeploy=""
+revisionToDeploy=""
+// targetDeployServer used to collect DMZ or Core and defined above
+
+//Json file preparation
+def recipeFileName
+def lobName
+def jobName
+def jobBuildNo
+def jobBuildResult
+def jobBuildDate
+def jobBuildUser
+buildUser="AutoTrigger"
+
+//email purpose
+def emailBodyPrefix
+def emailBodySuffix
+def emailSubjectPrefix
+def emailSubjectSuffix
+def adminEmailID
+def teamEmailDL
+errorInfo="" 
+
+pipeline {    
+    agent 
+	{
+        label 'K8WinSlave1'
+    }
+    options 
+	{
+		timestamps()
+    }
+    stages 
+	{
+        
+		stage('Read_Configuration') 
+        {
+            steps 
+            {
+			
+			   script
+			   {
+					echo "------------PHASE:Read Configuration-----------"	
+					wrap([$class: 'BuildUser']) 
+					{
+						//echo "BUILD_USER=${BUILD_USER}"
+						//echo "env.BUILD_USER=${env.BUILD_USER}"
+						//buildUser="${BUILD_USER}"
+					}
+					configFileProvider([configFile(fileId: '6341cb0e-21f3-4ca1-af6f-c0c78d254a4a', targetLocation: "${configRoutingFileName}" , variable: 'configFileLocation')]) 
+					{
+						//echo "Configuration Json File Location: ${configFileLocation} and below are the content of that file:"
+						//sh "cat ${configRoutingFileName}"
+					
+						configRoutingFileObject1 = readJSON file: configRoutingFileName	
+						appName=configRoutingFileObject1.APP_LISTS.AppName[0]
+						
+						artifactoryServerID=configRoutingFileObject1.JFROG_CONFIG.artifactoryServerID[0]
+						artifactoryUserID=configRoutingFileObject1.JFROG_CONFIG.artifactoryUserID[0]
+						artifactorySnapshotBasePath=configRoutingFileObject1.JFROG_CONFIG.artifactorySnapshotBasePath[0]
+						artifactoryReleaseBasePath=configRoutingFileObject1.JFROG_CONFIG.artifactoryReleaseBasePath[0]
+						artifactoryVirtualPath=configRoutingFileObject1.JFROG_CONFIG.artifactoryVirtualPath[0]
+						artifactoryBaseURL=configRoutingFileObject1.JFROG_CONFIG.artifactoryBaseURL[0]
+						tagLimit=configRoutingFileObject1.JFROG_CONFIG.tagLimit[0]
+						
+						npmCommand=configRoutingFileObject1.BUILD_CONFIG.npmCommand[0]
+						buildCommand=configRoutingFileObject1.BUILD_CONFIG.buildCommand[0]
+						ngTargetDistFolder=configRoutingFileObject1.BUILD_CONFIG.ngTargetDistFolder[0]
+						DeployOnBuild=configRoutingFileObject1.BUILD_CONFIG.DeployOnBuild[0]
+						PublishProfileLeading=configRoutingFileObject1.BUILD_CONFIG.PublishProfileLeading[0]
+						PublishProfileTrailing=configRoutingFileObject1.BUILD_CONFIG.PublishProfileTrailing[0]
+						PublishURL=configRoutingFileObject1.BUILD_CONFIG.PublishURL[0]
+						workSpaceTempFolder=configRoutingFileObject1.BUILD_CONFIG.workSpaceTempFolder[0]
+						pipelineScriptFolder=configRoutingFileObject1.BUILD_CONFIG.pipelineScriptFolder[0]
+						dotFolder=configRoutingFileObject1.BUILD_CONFIG.dotFolder[0]
+						serverTypeCore=configRoutingFileObject1.BUILD_CONFIG.serverType[0]
+						serverTypeDMZ=configRoutingFileObject1.BUILD_CONFIG.serverType[1]
+						targetServerFolder=configRoutingFileObject1.BUILD_CONFIG.targetServerFolder[0]
+						configLocation=configRoutingFileObject1.BUILD_CONFIG.configLocation[0]
+						lobServerTypeMappingFile=configRoutingFileObject1.BUILD_CONFIG.lobServerTypeMappingFile[0]
+						
+						manifestXML=configRoutingFileObject1.XLDEPLOY_CONFIG.manifestXML[0]
+						XLDeployBaseApiUrl=configRoutingFileObject1.XLDEPLOY_CONFIG.XLDeployBaseApiUrl[0]
+						XLDeployInputParam_IDLeadingPath=configRoutingFileObject1.XLDEPLOY_CONFIG.XLDeployInputParam_IDLeadingPath[0]
+						XLDeployInputParam_IDType=configRoutingFileObject1.XLDEPLOY_CONFIG.XLDeployInputParam_IDType[0]
+						XLDeployInputParam_pipelineLeadingPath=configRoutingFileObject1.XLDEPLOY_CONFIG.XLDeployInputParam_pipelineLeadingPath[0]
+						XLDeployCredentials_ID=configRoutingFileObject1.XLDEPLOY_CONFIG.XLDeployCredentials_ID[0]
+						XLDeployEnvironmentIDLeadingPath=configRoutingFileObject1.XLDEPLOY_CONFIG.XLDeployEnvironmentIDLeadingPath[0]
+						packagePublishSleepTime=configRoutingFileObject1.XLDEPLOY_CONFIG.packagePublishSleepTime[0]
+						packagePublishSleepTimeUnit=configRoutingFileObject1.XLDEPLOY_CONFIG.packagePublishSleepTime[1]
+						packageDefaultSleepTime=configRoutingFileObject1.XLDEPLOY_CONFIG.packagePublishSleepTime[2]
+						inputTimeLimit=configRoutingFileObject1.XLDEPLOY_CONFIG.inputTimeLimit[0]
+						inputTimeLimitUnit=configRoutingFileObject1.XLDEPLOY_CONFIG.inputTimeLimit[1]
+						
+						//email
+						emailBodyPrefix=configRoutingFileObject1.EMAIL_CONFIG.emailBodyPrefix[0]
+						emailBodySuffix=configRoutingFileObject1.EMAIL_CONFIG.emailBodySuffix[0]
+						emailSubjectPrefix=configRoutingFileObject1.EMAIL_CONFIG.emailSubjectPrefix[0]
+						emailSubjectSuffix=configRoutingFileObject1.EMAIL_CONFIG.emailSubjectSuffix[0]
+						adminEmailID=configRoutingFileObject1.EMAILID_CONFIG.adminEmailID[0]
+						teamEmailDL=configRoutingFileObject1.EMAILID_CONFIG.teamEmailDL[0]	
+					}
+					targetBuildArtifacts = WORKSPACE +"\\"+workSpaceTempFolder
+					
+					//server.credentialsId=artifactoryUserID
+					
+					echo "appName=${appName}, artifactoryServerID=${artifactoryServerID}, buildCommand=${buildCommand}, DeployOnBuild=${DeployOnBuild}, PublishProfileLeading= ${PublishProfileLeading},PublishProfileTrailing=${PublishProfileTrailing}, PublishURL=${PublishURL}, workSpaceTempFolder=${workSpaceTempFolder}, pipelineScriptFolder=${pipelineScriptFolder}"
+					
+					if ("${appName}".equalsIgnoreCase("") || "${artifactoryServerID}".equalsIgnoreCase("") || "${artifactoryUserID}".equalsIgnoreCase("") || "${artifactorySnapshotBasePath}".equalsIgnoreCase("") || "${artifactoryVirtualPath}".equalsIgnoreCase("") || "${buildCommand}".equalsIgnoreCase("") || "${DeployOnBuild}".equalsIgnoreCase("") || "${PublishProfileLeading}".equalsIgnoreCase("") || "${PublishProfileTrailing}".equalsIgnoreCase("") || "${PublishURL}".equalsIgnoreCase("") || "${pipelineScriptFolder}".equalsIgnoreCase("") || "${PublishProfileTrailing}".equalsIgnoreCase("") || "${dotFolder}".equalsIgnoreCase("") || "${serverTypeCore}".equalsIgnoreCase("") || "${serverTypeDMZ}".equalsIgnoreCase("") || "${targetServerFolder}".equalsIgnoreCase("") || "${configLocation}".equalsIgnoreCase("")  || "${lobServerTypeMappingFile}".equalsIgnoreCase("") || "${manifestXML}".equalsIgnoreCase("") || "${XLDeployBaseApiUrl}".equalsIgnoreCase("") || "${XLDeployInputParam_IDLeadingPath}".equalsIgnoreCase("") || "${XLDeployInputParam_IDType}".equalsIgnoreCase("") || "${XLDeployInputParam_pipelineLeadingPath}".equalsIgnoreCase("") || "${XLDeployCredentials_ID}".equalsIgnoreCase("") || "${XLDeployEnvironmentIDLeadingPath}".equalsIgnoreCase("") || "${artifactoryReleaseBasePath}".equalsIgnoreCase(""))
+					{
+						errorInfo="Sorry basic configuration parameter is missing. So the current build is stopped"               
+						error("${errorInfo}")
+					}
+					
+					readConfiguration="SUCCESS"
+					echo "*************************************************** [PIPELINE END] [Read Configuration] ***************************************************"
+			   }
+			}  
+			
+		}
+		
+		stage ('P_Checkout') 
+		{
+            stages 
+			{
+                stage ('Checkout_Files')
+				{
+                    steps 
+					{
+                        echo "------------PHASE: CHECKOUT STEP1: CHECKOUT FILES-----------"		
+                        script 
+						{
+                            try 
+							{                     
+                                //(modifiedFolders,modifiedFiles,fullFileList) = getChangedFolders(modifiedFolders,modifiedFiles,fullFileList)
+								(errorInfo) = getChangedFolders()
+								 modifiedAllFolders=modifiedFolders
+								 modifiedFolders=[]
+                                //(checkoutStatus, modifiedFileChanges) = prepareModifiedFiles(modifiedAllFolders,configObject,lobConfigObject,checkoutStatus,modifiedFileChanges)                             
+								(modifiedFileChanges) = prepareModifiedFiles(configObject,lobConfigObject,modifiedFileChanges)
+								tagStatus="SUCCESS"
+                            }  
+							catch (err) 
+							{
+                                echo "${err}"
+								errorInfo="${err}"
+                                checkoutStatus="FAILED"
+                                error("${errorInfo}")                          
+                            } 
+                                                            
+                        }
+                    } 
+                }
+            }              
+        }
+
+        stage('P_Build')
+		{
+            when 
+			{
+                allOf 
+				{
+                    expression{tagStatus == "SUCCESS"}
+                }                
+            }
+            stages 
+			{
+                stage('Clean_Prev_Build_Artifacts')
+				{
+                    steps 
+					{
+                        echo "------------PHASE BUILD STEP 1: Clean previous build artifacts-----------"
+                        echo "modified folders = ${modifiedFolders}"                
+                        script 
+						{
+                            (cleanupStatus)= cleanPreviousBuildArtifacts(cleanupStatus,targetBuildArtifacts)                       
+                        }
+                    }
+                }
+                stage('Build_New_Artifacts')
+				{
+                    when 
+					{
+                        allOf 
+						{
+                            expression{cleanupStatus == "SUCCESS"}
+                            expression{modifiedFolders.size() >= 1}
+                        }                
+                    }
+                    steps
+					{
+                        echo "------------PHASE BUILD STEP 2: Build-----------"
+                        script
+						{
+                            (etcFolderStatus)= buildNewArtifacts(etcFolderStatus,modifiedFolders,publishFolder,targetBuildArtifacts)
+                        }
+                    }                    
+                }
+            }
+            
+        }
+        
+
+    }
+    post 
+	{
+		always 
+		{
+           
+		   script
+			{
+			
+				stage('Email_Notification') 
+				{
+					echo "----------Call [sendEmailNotification] function------------------"
+					(errorInfo)=sendEmailNotification(emailSubjectPrefix,emailSubjectSuffix,buildUser,modifiedFiles,teamEmailDL,adminEmailID)
+						
+					echo "----------Returned the result of the [sendEmailNotification] function and the outputs are below------------------"
+				}
+			
+			}
+		}
+	}
+}
+
+@NonCPS
+List getChangedFolders() 
+{
+   // List modifiedFolders = []
+  //  def modifiedFiles
+   // def fullFileList=""    
+    def changeLogSets = currentBuild.changeSets
+    for (int i = 0; i < changeLogSets.size(); i++) 
+	{
+        def entries = changeLogSets[i].items
+        for (int j = 0; j < entries.length; j++) 
+		{
+            def entry = entries[j]
+            def files = new ArrayList(entry.affectedFiles)           
+            for (int k = 0; k < files.size(); k++) 
+			{
+                def file = files[k]                
+                def folder = file.path.split("/")
+                fullFileList += "${WORKSPACE}\\" + file.path+"\n"               
+                if(folder.size() > 1)
+				{
+                    modifiedFolders.add(folder[0] + "/" +folder[1])                                        
+                }
+                modifiedFiles += "<tr style=\"background-color:#EAEAEA;\"><td>${file.path}</td><td>${new Date(entry.timestamp)}</td><td>${entry.author}</td><td>${entry.commitId}</td></tr>"         
+            }            
+        }
+    }
+	if(!modifiedFiles)
+	{
+		modifiedFiles = "<tr style=\"background-color:#EAEAEA;\"><td>No Modified files</td><td>NA</td><td>NA</td><td>NA</td></tr>"
+	}
+	modifiedFolders.unique()
+	return [errorInfo]
+}
+
+@NonCPS
+String getBase64Cred(String cred)
+{
+	return cred.bytes.encodeBase64().toString()
+} 
+
+def prepareModifiedFiles(configObject,lobConfigObject,modifiedFileChanges) 
+{ 
+	echo ">>>>>>>START: Inside the function of [prepareModifiedFiles]<<<<<<<<<"
+	try 
+	{
+		//Read Configuration dependency project File
+		configObject = readJSON file: "${configLocation}"
+		echo "${configObject}"     
+		//Read Lob server type details [DMZ or CORE]
+		lobConfigObject = readJSON file: "${lobServerTypeMappingFile}"
+		echo "${lobConfigObject}"                                        
+		// remove solution file and script file from compilation
+		for (int i = 0; i < modifiedAllFolders.size(); i++) 
+		{                                    
+			if (!modifiedAllFolders[i].contains(dotFolder) && !modifiedAllFolders[i].contains(pipelineScriptFolder)) 
+			{
+				echo "${modifiedAllFolders[i]}"                                        
+				if(configObject.dependencies[appName][modifiedAllFolders[i]])
+				{
+					echo "Found Dependency for ${modifiedAllFolders[i]} . Adding ${configObject.dependencies[appName][modifiedAllFolders[i]]} for compilation"
+					modifiedFolders.add(configObject.dependencies[appName][modifiedAllFolders[i]])
+				} 
+				else 
+				{
+				   modifiedFolders.add(modifiedAllFolders[i])
+				}
+			}                                    
+		}
+		modifiedFolders.unique()
+		
+		echo "FILE CHANGES: ${fullFileList}"			            
+        echo "FOLDER CHANGES: ${modifiedFolders}"			            
+                                                               
+        fullFileList = fullFileList.replaceAll("/", "\\\\")
+        sh('#!/bin/sh -e\n' + "echo \"${fullFileList}\" > ${modifiedFileChanges}")
+
+        if(modifiedFolders.size()>1)
+		{
+            checkoutStatus="FAILED"
+			errorInfo="Found More than one LOB in the Build. Terminating Build"
+			echo "???? prepareModifiedFiles: ${errorInfo} ????"
+            error("${errorInfo}") 
+        }    
+        if(modifiedFolders && modifiedFolders.size()>0)
+		{
+            modifiedFinalFolder = modifiedFolders[0].split("/")[0]
+            echo "FINAL FOLDER CHANGES: ${modifiedFinalFolder}"			            
+                                                                      
+            if(lobConfigObject.dependencies[modifiedFinalFolder])
+			{
+                echo "Found Server for ${modifiedFinalFolder} : ${lobConfigObject.dependencies[modifiedFinalFolder]} "
+                targetDeployServer = lobConfigObject.dependencies[modifiedFinalFolder]
+                checkoutStatus="SUCCESS"
+				echo "<<<< prepareModifiedFiles: ${checkoutStatus} >>>>"
+            } 
+			else 
+			{
+				errorInfo="No CORE OR DMZ mapping found for ${modifiedFinalFolder}. Kindly verify ${lobServerTypeMappingFile} for mapping. If not found, Kindly add the entry for the LOB"
+				echo "???? prepareModifiedFiles: ${errorInfo} ????"
+                checkoutStatus="FAILED"
+                error("${errorInfo}") 
+            }
+
+			if((targetDeployServer == serverTypeCore) || (targetDeployServer == serverTypeDMZ)) 
+			{
+				checkoutStatus="SUCCESS"
+				echo "<<<< prepareModifiedFiles: ${checkoutStatus} >>>>"
+			}
+			else
+			{
+				errorInfo="Server Type is not valid mapping found for ${modifiedFinalFolder}. Should be either CORE OR DMZ. Kindly verify ${lobServerTypeMappingFile} for mapping. "
+				echo "???? prepareModifiedFiles: ${errorInfo} ????"
+				checkoutStatus="FAILED"
+                error("${errorInfo}")
+			}
+			
+        } 
+		else 
+		{
+            errorInfo=errorInfo+":No file changes found for build. Exiting Script !!!"
+			echo "???? prepareModifiedFiles: ${errorInfo} ????"
+            checkoutStatus="FAILED"
+            error("${errorInfo}") 
+        }                 
+	}
+		
+	catch (err) 
+	{
+        errorInfo="${err}"
+		echo "???? prepareModifiedFiles: ${errorInfo} ????"
+        checkoutStatus="FAILED"
+        error("${errorInfo}")                          
+    } 
+	
+	echo "checkoutStatus =${checkoutStatus}"
+	echo "errorInfo =${errorInfo}"
+	echo ">>>>>>>END: Inside the function of [prepareModifiedFiles]<<<<<<<<<"
+	return [modifiedFileChanges]
+} 	
+
+def cleanPreviousBuildArtifacts(cleanupStatus,targetBuildArtifacts) 
+{ 
+	echo ">>>>>>>START: Inside the function of [cleanPreviousBuildArtifacts]<<<<<<<<<"
+	cleanupStatus="SKIPPED"
+    
+    echo "Cleaning previous published directories"
+    if(fileExists(targetBuildArtifacts))  
+	{
+        try 
+		{
+            bat "rmdir /S /Q  \"${targetBuildArtifacts}\""
+            if(fileExists(targetBuildArtifacts))
+			{
+                cleanupStatus="FAILED"
+            } 
+			else 
+			{
+                cleanupStatus="SUCCESS"
+				
+			}
+            cleanupStatus="SUCCESS"
+			
+			echo "<<<< cleanPreviousBuildArtifacts: ${cleanupStatus} >>>>"
+        } 
+		catch (err) 
+		{
+            errorInfo="${err}"
+			echo "???? cleanPreviousBuildArtifacts: ${errorInfo} ????"
+            cleanupStatus="FAILED"
+            error("${errorInfo}")                          
+        }
+    } 
+	else 
+	{
+        echo "No Published directories found for clean up. Proceeding with Build"
+        cleanupStatus="SUCCESS"
+		echo "<<<< cleanPreviousBuildArtifacts: ${cleanupStatus} >>>>"
+    } 
+	echo "cleanupStatus =${cleanupStatus}"
+	echo "errorInfo =${errorInfo}"
+	echo ">>>>>>>END: Inside the function of [cleanPreviousBuildArtifacts]<<<<<<<<<"
+	return [cleanupStatus]
+}
+
+def buildNewArtifacts(etcFolderStatus,modifiedFolders,publishFolder,targetBuildArtifacts) 
+{ 
+	echo ">>>>>>>START: Inside the function of [buildNewArtifacts]<<<<<<<<<"
+	try
+	{                            
+        etcFolderStatus = false
+		
+        for (int i = 0; i < modifiedFolders.size(); i++) 
+		{                               
+            publishFolder = modifiedFolders[i].split("/")  
+			echo "publishFolder=${publishFolder}"
+			echo "publishFolder[0]=${publishFolder[0]}"
+			echo "modifiedFolders=${modifiedFolders[i]}"
+            if(publishFolder[0] == pipelineScriptFolder)
+			{
+				errorInfo="Skipping build as [etc] folder only changed"
+                if(modifiedFolders.size() == 1) 
+				{
+                   etcFolderStatus = true
+                }                                   
+                buildStatus="SUCCESS"                                  
+            }                               
+            if(publishFolder[0] != "etc")
+			{                                   
+                echo "**********Building Project - ${modifiedFolders[i]}*****"
+				
+                dir("${WORKSPACE}/${modifiedFolders[i]}")  
+				{
+                    echo "*********NPM INSTALL - ${modifiedFolders[i]}*****" 
+                     sh "${npmCommand}" 
+                    echo "*********Building project - ${modifiedFolders[i]}*****"
+                    sh "${buildCommand}"
+                }
+				buildStatus="SUCCESS"                                    
+            } 
+			echo "<<<< buildNewArtifacts: ${buildStatus} >>>>"
+        }                        
+    } 
+	catch (err) 
+	{
+        errorInfo="${err}"
+		echo "???? buildNewArtifacts: ${errorInfo} ????"
+		buildStatus="FAILED"
+        error("${errorInfo}")                          
+    }
+	echo "etcFolderStatus =${etcFolderStatus}"
+	echo "buildStatus =${buildStatus}"
+	echo "errorInfo =${errorInfo}"
+	echo ">>>>>>>END: Inside the function of [buildNewArtifacts]<<<<<<<<<"
+	return [etcFolderStatus]
+}
+
+
+
+def sendEmailNotification(emailSubjectPrefix,emailSubjectSuffix,buildUser,modifiedFiles,teamEmailDL,adminEmailID) 
+{ 
+	echo ">>>>>>>START: Inside the function of [sendEmailNotification]<<<<<<<<<"
+	def subjectDetails="[${appName}] [${deployEnvironment}] ${emailSubjectPrefix} ${currentBuild.currentResult} ${emailSubjectSuffix} [${BRANCH_NAME}]"
+						
+	def bodyDetails="<html><head><style>#customers {font-family: 'Trebuchet MS', Arial, Helvetica, sans-serif;border-collapse: collapse;width: 100%;}#customers1 caption {background-color: #008080;text-align: center;color: white;}#customers td, #customers th {border: 1px solid #ddd;padding: 8px;}#customers th {padding-top: 12px;padding-bottom: 12px;text-align: left;background-color: #008080;color: white;}</style></head><body><p>"
+	
+	bodyDetails=bodyDetails+"<table id='customers'><tr><th colspan=2>${subjectDetails}</th></tr>"	
+	//Job Status	
+	bodyDetails=bodyDetails+"<tr><td bgcolor=#97e5e5><b>Job Details Summary</b></td></tr><tr><td>Job Name</td><td>${env.JOB_NAME}</td></tr><tr><td>Job Build No</td><td>${env.BUILD_NUMBER}</td></tr><tr><td>Job executed by</td><td>${buildUser}</td></tr><tr><td>Build URL</td><td>${env.BUILD_URL}</td></tr>"
+	bodyDetails=bodyDetails+"<tr><td bgcolor=#97e5e5><b>Pipeline Step Status</b></td></tr><tr><td>CheckOut</td><td>${checkoutStatus}</td></tr><tr><td>Build</td><td>${buildStatus}</td></tr>"
+	
+	bodyDetails=bodyDetails+"<tr><td bgcolor=#97e5e5><b>Other Info</b></td></tr><tr><td>Remarks</td><td>${errorInfo}</td></tr>"
+	bodyDetails=bodyDetails+"</table></body></html> <br><br>"
+	
+	//Modified file Status
+	bodyDetails=bodyDetails+"<br><br><html><head><style>#customers {font-family: 'Trebuchet MS', Arial, Helvetica, sans-serif;border-collapse: collapse;width: 100%;}#customers1 caption {background-color: #008080;text-align: center;color: white;}#customers td, #customers th {border: 1px solid #ddd;padding: 8px;}#customers th {padding-top: 12px;padding-bottom: 12px;text-align: left;background-color: #008080;color: white;}</style></head><body><p>"
+	
+	bodyDetails=bodyDetails+"<table id='customers'><tr><th colspan=4><b>Modified Files Summary</b></th></tr>"
+	bodyDetails=bodyDetails+"<tr><td><b>Modified File List</b></td><td><b>TimeStamp</b></td><td><b>Author</b></td><td><b>Commit ID</b></td></tr>${modifiedFiles}"					
+	bodyDetails=bodyDetails+"</table></body></html>"
+
+	if (currentBuild.currentResult.equalsIgnoreCase("SUCCESS"))
+	{
+		echo 'Send email for post build without attachment!'
+		emailext attachLog: false,
+		to: "${teamEmailDL}",
+		mimeType: "text/html",
+		subject: "${subjectDetails}",
+		body: "${bodyDetails}"
+	}
+	else
+	{
+		echo 'Send email for post build with attachment!'	
+		emailext attachLog: true, compressLog: true,
+		to: "${adminEmailID}",
+		mimeType: "text/html",
+		subject: "${subjectDetails}",
+		body: "${bodyDetails}"
+							
+		echo 'Send email for post build without attachment!'
+		emailext attachLog: false,
+		to: "${teamEmailDL}",
+		mimeType: "text/html",
+		subject: "${subjectDetails}",
+		body: "${bodyDetails}"
+							
+	}
+	echo ">>>>>>>END: Inside the function of [sendEmailNotification]<<<<<<<<<"
+	return [errorInfo]
+}

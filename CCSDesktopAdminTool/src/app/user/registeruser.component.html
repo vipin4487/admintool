@@ -1,0 +1,58 @@
+<div class="panel panel-primary">
+    <div class="panel-heading" style="font-size:large">
+        Create User       
+    </div>
+    <div class="panel-body">
+           
+        <div class="col-md-6">
+            <form #newUserForm="ngForm" (ngSubmit)="saveUser(newUserForm)" autocomplete="off" novalidate>      
+                <div class="form-group" [ngClass]="{'error': newUserForm.controls.DomainId?.invalid && newUserForm.controls.DomainId?.touched}">
+                    <label for="eventName">Domain Id:</label>
+                    <em *ngIf="newUserForm.controls.DomainId?.invalid && (newUserForm.controls.DomainId?.touched || mouseoverLogin === true)">Required</em>
+                    <input [(ngModel)]="DomainId" name="DomainId" required id="DomainId" type="text" class="form-control" placeholder="Your Domain Id..." />
+                </div>
+                <div class="form-group" [ngClass]="{'error': newUserForm.controls.DomainName?.invalid && newUserForm.controls.DomainName?.touched}" >
+                <label for="password">Domain Name:</label>
+                <em *ngIf="newUserForm.controls.DomainName?.invalid && (newUserForm.controls.DomainName?.touched || mouseoverLogin === true)">Required</em>
+                <input [(ngModel)]="DomainName" name="DomainName" id="DomainName" type="text" class="form-control" placeholder="Your Domain Name..." required/>
+                </div> 
+                <div class="form-group" [ngClass]="{'error': newUserForm.controls.BusinessUnit?.invalid && newUserForm.controls.BusinessUnit?.touched }">
+                <label for="BusinessUnit">Business Unit:</label>
+                <em *ngIf="newUserForm.controls.BusinessUnit?.invalid && (newUserForm.controls.BusinessUnit?.touched || mouseoverLogin === true)">Required</em>
+                <select  name="BusinessUnit"  class="form-control" required  [(ngModel)]="BusinessUnit" >
+                    <option value="" [selected]="BusinessUnit == ''">Select Business Unit...</option>
+                    <option *ngFor="let bu of businessUnits" value={{bu.Business_Unit_Id}}>  
+                                    {{bu.Business_Unit_Nm}}  
+                    </option>  
+                </select>
+                <!--<p-dropdown [options]="businessUnits" [(ngModel)]="selectedBusinessUnit" ></p-dropdown>-->
+                </div>  
+                <div class="form-group" [ngClass]="{'error': newUserForm.controls.AgentRole?.invalid && newUserForm.controls.AgentRole?.touched }">
+                <label for="AgentRole">Agent Role:</label>
+                <em *ngIf="newUserForm.controls.AgentRole?.invalid && (newUserForm.controls.AgentRole?.touched || mouseoverLogin === true)">Required</em>
+                <!--(ngModel)="agentRole"-->
+                <select  name="AgentRole"  class="form-control" required  [(ngModel)]="AgentRole" >
+                    <option value=""  [selected]="AgentRole == ''">Select Agent Role...</option>
+                    <option value="1" [selected]="AgentRole == 1">Enterprise Admin</option>
+                    <option value="2" [selected]="AgentRole == 2">Business Unit Admin</option>
+                    <option value="3" [selected]="AgentRole == 3">Business Supervisor</option>
+                    <option value="4" [selected]="AgentRole == 4">Business User</option>
+                    <option value="5" [selected]="AgentRole == 5">Enterprise User</option>
+                </select>
+                </div>     
+                <span (mouseenter)="mouseoverLogin=true">   
+                    <button type="submit" class="btn btn-primary" [disabled]="newUserForm.invalid">Save</button>
+                    <button type="button"  class="btn btn-default" (click)="cancel()">Cancel</button>
+                </span>
+                <br/>
+               
+            </form>
+            <br/>
+       
+            <p-message severity="info" [text]="Message" *ngIf = "!IsSuccess && checkMessage"></p-message> 
+            <p-message severity="success" [text]="Message" *ngIf="IsSuccess && checkMessage"></p-message> 
+
+        </div>
+  
+    </div>
+</div>

@@ -1,0 +1,6 @@
+{
+  "_comment": "Specify exact LOB name as KEY and 'CORE' OR 'DMZ' as Value",
+  "dependencies": {
+	"POC_CCSDesktopAngular": "CORE"
+  }
+}

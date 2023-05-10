@@ -1,0 +1,3 @@
+dev- ng build
+stage- ng build --environment=stage
+prod- ng build --environment=prod --target=production

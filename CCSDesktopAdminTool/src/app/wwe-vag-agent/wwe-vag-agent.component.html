@@ -1,0 +1,23 @@
+<nav-menu ></nav-menu>
+<p-panel header="VAG Agent records" [toggleable]="true">
+  
+  <div style="word-wrap: break-word;">
+    <button pButton type="button" label="Expand all" (click)="expandAll()" style="margin-right: .5rem"></button>
+    <button pButton type="button" label="Collapse all" (click)="collapseAll()"></button>
+  </div>
+   
+
+<div style="word-wrap: break-word;">
+      <br>
+      <div>
+        <p-breadcrumb [model]="crumbs$ | async" [home]="home" (itemClick)="onBreadCrumbClick($event)" (onItemClick)="onBreadCrumbClick($event)"></p-breadcrumb>
+      </div>
+      <div *ngIf="files2 && files2.length > 0">
+        <p-tree [value]="files2" [filter]="true" selectionMode="single" (onNodeSelect)="onNodeSelect($event)" [style]="{'width':'100%'}"
+          (onNodeExpand)="onNodeExpand($event)" (onNodeCollapse)="onNodeCollapse($event)"
+          ></p-tree>
+      </div>
+
+    </div>
+
+</p-panel>

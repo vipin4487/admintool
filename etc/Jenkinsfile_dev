@@ -1,0 +1,621 @@
+#!/usr/bin/env groovy
+
+@Library("global-pipeline-library@master") _
+/***** EMAIL COLOR SCHEME ********/
+def RESET="\u001B[0m\n"
+def RED="\u001b[31;1m"
+def GREEN="\u001b[32;1m"
+def BLUE="\u001b[34;1m"
+def ORANGE="\u001b[38;2;255;165;0m"
+def BGRED="\u001b[41m"
+def BGGREEN="\u001b[42m"
+def BGYELLOW="\u001b[43m"
+def BGBLUE="\u001b[44m"
+def BGORANGE="\u001b[48;2;255;165;0m"
+def ULINE="\u001b[4m"
+def BOLD="\u001b[1m"
+SKIPPED="<font color='red'>SKIPPED</font>"
+SUCCESS="<font color='#006600'>SUCCESS</font>"
+FAILED="<font color='red'>FAILED</font>"
+/***** END EMAIL COLOR SCHEME ********/
+/***** PIPELINE STATUS ********/
+def checkoutStatus=SKIPPED
+def tagStatus=SKIPPED
+def sonarStatus=SKIPPED
+def fortifyStatus=SKIPPED
+def buildStatus=SKIPPED
+def artifactoryStatus=SKIPPED
+def deployStatus=SKIPPED
+def taggingStatus=SKIPPED
+/*****EOD STAGE STATUS ********/
+/*****WILDCARD DELIMITERS TO SKIP BUILD******/
+def dot = "."
+def scriptFolder = "etc/"
+/***EOD WILDCARD DELIMITERS****/
+/***** PIPELINE PARAM ********/
+def tag
+def configLocation = "etc/config.json"
+def configObject
+def modifiedFolders = []
+def fortifyCleanStatus
+def fortifyScanStatus
+def cleanupStatus
+def publishFolder = ""
+def emailContent = ""
+def targetBuildArtifacts
+def etcFolderStatus=false
+def modifiedFileChanges = "modifiedFileChanges.txt"
+def targetDEVDeployFolder = "\\\\APSED6049\\inetpub\\wwwroot"
+def appName = "Desktop-Angular"
+def hygieiaAppName = "OmniChat-Desktop-Angular"
+//def toEmail = "kalyan.senthilnathan@optum.com"
+def toEmail = "Vanguard_DL@ds.uhc.com;Pioneers_DL@ds.uhc.com;omni_cicd-1_DL@ds.uhc.com;OMNI_DEV_WWE_LEADS@ds.uhc.com"
+def server = Artifactory.server('-1381075113@1458159651773')
+server.credentialsId = 'omni_cicd'
+/*************************************************
+    Update this script only for DEV changes 
+**************************************************/
+pipeline {    
+    agent {
+        label 'K8WinSlave1'
+    }
+    options {
+        ansiColor('xterm')
+	timestamps()
+    }
+    stages {
+        stage ('Checkout') {
+            stages {
+                stage ("Checkout files"){
+                    steps {
+                        echo "${BGORANGE}${BOLD}------------PHASE: CHECKOUT STEP1: CHECKOUT FILES-----------${RESET}"		
+                        script {
+                            try {                     
+                                (modifiedAllFolders, modifiedFiles, fullFileList) = getChangedFolders()
+                                /*----------------------------------------------------------*/
+                                //Read Config File
+                                configObject = readJSON file: "${configLocation}"
+                                echo "${configObject}"                                                             
+                                /*-----------------------------------------------------------*/
+                                // remove solution file and script file from compilation 
+                                for (int i = 0; i < modifiedAllFolders.size(); i++) {                                    
+                                    if (!modifiedAllFolders[i].contains(dot) && !modifiedAllFolders[i].contains(scriptFolder)) {
+                                        echo "${modifiedAllFolders[i]}"                                        
+                                        if(configObject.dependencies[appName][modifiedAllFolders[i]]){
+                                            echo "${GREEN}${BOLD}Found Dependency for ${modifiedAllFolders[i]} . Adding ${configObject.dependencies[appName][modifiedAllFolders[i]]} for compilation ${RESET}"
+                                            modifiedFolders.add(configObject.dependencies[appName][modifiedAllFolders[i]])
+                                        } else {
+                                            modifiedFolders.add(modifiedAllFolders[i])
+                                        }
+                                    }                                    
+                                }
+                                modifiedFolders.unique()
+                                /*-----------------------------------------------------------*/                  
+                                echo "${ULINE}${BOLD}FILE CHANGES${RESET}"			            
+                                echo "${GREEN}${fullFileList}${RESET}"
+                                echo "${ULINE}${BOLD}FOLDER CHANGES${RESET}"			            
+                                echo "${GREEN}${modifiedFolders}${RESET}"
+                                fullFileList = fullFileList.replaceAll("/", "\\\\")
+                                sh('#!/bin/sh -e\n' + "echo \"${fullFileList}\" > ${modifiedFileChanges}")                                                
+                                checkoutStatus=SUCCESS                                             
+                            }  catch (err) {
+                                echo "${RED}${BOLD}${err}${RESET}"
+                                checkoutStatus=FAILED
+                                sh 'exit 1'                          
+                            } 
+                                                            
+                        }
+                    } 
+                }
+                stage ('Fetch Tags') {
+                    when {
+                        allOf {
+                            expression{checkoutStatus == SUCCESS}
+                        }                
+                    }
+                    steps{
+                        echo "${BGORANGE}${BOLD}------------PHASE: CHECKOUT STEP2: FETCH TAGS-----------${RESET}"
+                        script {
+                            try {
+                                /*** Pruning deleted tags from remote in local**/
+                                sh 'git fetch origin --prune --prune-tags'
+                                tag = sh (script: 'git log -1 --pretty=%B | grep \"pull request\" | awk -F/ \'{print $NF}\'', returnStdout: true).trim()
+                                echo "${GREEN}${BOLD}tag: ${tag}${RESET}" 
+                                if(tag){
+                                    tagStatus = SUCCESS
+                                } else {
+                                    echo "${RED}${BOLD}No valid pull request found... Exiting Script!!!${RESET}"
+                                    tagStatus = FAILED
+                                }                        
+                            }  catch (err) {
+                                echo "${RED}${BOLD}${err}${RESET}"                        
+                                sh 'exit 1'                          
+                            }
+                        }
+                    }
+                }
+            }              
+        }
+        stage('Sonar') {
+            when {
+                allOf {
+                    expression{checkoutStatus == SUCCESS}
+                    expression{tagStatus == SUCCESS}
+                }                
+            }            
+            steps{
+                script{
+                    echo "${BGORANGE}${BOLD}-------------PHASE: SONAR SCAN STEP:1  Sonar scan files------------${RESET}"
+                    try{                            			
+                       // bat """sonar-scanner.bat -D\"sonar.projectKey=com.optum.OmniChannel:WWE-KanaPreChat\" -D\"sonar.sources=.\" -D\"sonar.projectVersion=${BUILD_ID}\" -D\"sonar.host.url=https://sonar.optum.com\" -D\"sonar.login=2d8bc50c2fb0e2ad9b787198b14c2c9fc97cc22d\""""				            
+                        sonarStatus = SUCCESS
+                    } catch (err) {
+                        echo "${RED}${BOLD}${err}${RESET}"
+                        sonarStatus = SKIPPED
+                        sh 'exit 0'
+                    } 
+                }
+            }        
+        }       
+        stage('Fortify') {
+            when {
+                allOf {
+                    expression{checkoutStatus == SUCCESS}
+                    expression{tagStatus == SUCCESS}
+                }                
+            }
+            stages{                
+                stage("Clean previous scan files"){
+                    steps {                        
+                        script {
+                            fortifyCleanStatus = SKIPPED                          
+                            echo "${BGORANGE}${BOLD}-------------PHASE: FORTIFY SCAN STEP:1  Clean Previous scan files------------${RESET}"
+                            def modifiedFilePath = new File("${WORKSPACE}\\${modifiedFileChanges}")                        
+                            if(modifiedFilePath) {
+                                echo "${BLUE}cleaning previous fortify directories${RESET}"                  
+                                try {
+                                    bat "DEL /F \"${WORKSPACE}\\*.fpr\" \"${WORKSPACE}\\*.args\" \"${WORKSPACE}\\*.pdf\""       
+                                    fortifyCleanStatus = SUCCESS                         
+                                } catch (err) {
+                                    echo "${RED}${BOLD}${err}${RESET}"
+                                    fortifyCleanStatus = FAILED
+                                    sh 'exit 1'                          
+                                }                                                            
+                            } else {
+                                echo "${RED}${BOLD}No modified files found. Skipping Fortify Scan${RESET}"
+                            }                                                                  
+                        }                
+                    }
+                }
+                stage("Initiate Fortify scan"){
+                    when {
+                        allOf {                            
+                            expression{fortifyCleanStatus == SUCCESS}
+                        }                
+                    }
+                    steps {                        
+                        script {
+                            fortifyScanStatus = SUCCESS
+                            echo "${BGORANGE}${BOLD}------------PHASE: FORTIFY SCAN STEP 2: Initiating Fortify Scan------------${RESET}"                            
+                            try {
+                                //glFortifyScanWin( projectPath : "Kana-Prechat-Migration", fortifyFilePath : "Fortify_Kana-Prechat-Migration.bat ${WORKSPACE} MODIFIEDSCAN ${modifiedFileChanges} ${BUILD_ID}" ) 
+                                echo "${GREEN}${BOLD}Starting Scan${RESET}"
+                               // bat """Fortify_Kana-Prechat-Migration.bat \"${WORKSPACE}\" "MODIFIEDSCAN" ${modifiedFileChanges} ${BUILD_ID}"""                               
+                                fortifyScanStatus = SUCCESS
+                            } catch (err) {
+                                echo "${RED}${BOLD}${err}${RESET}"
+                                fortifyScanStatus = SKIPPED
+                                sh 'exit 0'
+                            }                                                            
+                                                                                           
+                        }                
+                    }
+                }
+                stage("Generate Fortify Scan Result"){
+                    when {
+                        allOf {                            
+                            expression{fortifyScanStatus == SUCCESS}
+                        }                
+                    }
+                    steps {                        
+                        script {                            
+                            echo "${BGORANGE}${BOLD}------------PHASE: FORTIFY SCAN STEP 3: Generate Fortify Scan Report------------${RESET}"                            
+                            try {
+                                //glFortifyScanWin( projectPath : "Kana-Prechat-Migration", fortifyFilePath : "Fortify_Kana-Prechat-Migration.bat ${WORKSPACE} MODIFIEDSCAN ${modifiedFileChanges} ${BUILD_ID}" )                                 
+                                echo "${GREEN}${BOLD}Generating scan repot${RESET}"
+                                bat """BIRTReportGenerator -template "Developer Workbook" -source Fortify_Kana-Prechat-Migration.fpr -format PDF -output fortifyscan_results.pdf """
+                                fortifyStatus = SUCCESS
+                            } catch (err) {
+                                echo "${RED}${BOLD}${err}${RESET}"
+                                fortifyStatus = SKIPPED
+                                sh 'exit 0'
+                            }                                                               
+                        }                
+                    }
+                }
+            }            
+        }
+        stage("Build"){
+            when {
+                allOf {
+                    expression{tagStatus == SUCCESS}
+                }                
+            }
+            stages {
+                stage("Clean Previous Build Artifacts"){
+                    steps {
+                        echo "${BGORANGE}${BOLD}------------PHASE BUILD STEP 1: Clean previous build artifacts-----------${RESET}"
+                        echo "${GREEN}modified folders = ${modifiedFolders}${RESET}"                
+                        script {
+                            cleanupStatus=SKIPPED
+                            targetBuildArtifacts = "${WORKSPACE}\\TEMP"
+                            echo "${BLUE}${BOLD}cleaning previous published directories${RESET}"
+                            if(fileExists(targetBuildArtifacts))  {
+                                try {
+                                    bat "rmdir /S /Q  \"${targetBuildArtifacts}\""
+                                    if(fileExists(targetBuildArtifacts)){
+                                        cleanupStatus=FAILED
+                                    } else {
+                                        cleanupStatus=SUCCESS
+                                    }
+                                    cleanupStatus=SUCCESS
+                                } catch (err) {
+                                    echo "${RED}${BOLD}${err}${RESET}"
+                                    cleanupStatus=FAILED
+                                    sh 'exit 1'                          
+                                }
+                            } else {
+                                echo "${BLUE} No Published directoires found for clean up. Proceeding with Build${RESET}"
+                                cleanupStatus=SUCCESS
+                            }                            
+                        }
+                    }
+                }                
+                stage("Build"){
+                    when {
+                        allOf {
+                            expression{cleanupStatus == SUCCESS}
+                            expression{modifiedFolders.size() >= 1}
+                        }                
+                    }
+                    steps{
+                        echo "${BGORANGE}${BOLD}------------PHASE BUILD STEP 2: Build-----------${RESET}"
+                        script{
+                            try{                            
+                                etcFolderStatus = false                          
+                                for (int i = 0; i < modifiedFolders.size(); i++) {                               
+                                    //publishFolder = modifiedFolders[i].split("/")  
+                                    if(modifiedFolders[i] == "etc"){
+                                        echo "${BLUE}${BOLD}Skipping build for etc folder${RESET}"
+                                        if(modifiedFolders.size() == 1) {
+                                            etcFolderStatus = true
+                                        }                                   
+                                        buildStatus=SUCCESS                                  
+                                    }                               
+                                    if(modifiedFolders[i] != "etc"){           
+                                       dir("${WORKSPACE}/${modifiedFolders[i]}")  {
+                                            bat "rmdir /S /Q  \"dist\""
+                                            echo "${ORANGE}*********NPM INSTALL - ${modifiedFolders[i]}*****${RESET}" 
+                                            sh 'npm install' 
+                                            echo "${ORANGE}*********Building project - ${modifiedFolders[i]}*****${RESET}"                                                                                                                                      
+                                            sh 'ng build'
+                                        }
+                                        if(fileExists("${modifiedFolders[i]}\\dist\\")){
+                                            buildStatus=SUCCESS
+                                            sh "mkdir -p TEMP/${modifiedFolders[i]}"
+                                            glDotNetStdCopyArtifacts( sourceFolder : "\"${modifiedFolders[i]}\\dist\\\"", buildArtifact : "*.*" , targetFolder : "\"TEMP\\${modifiedFolders[i]}\\\"")
+                                            glDotNetStdCopyArtifacts( sourceFolder : "\"${modifiedFolders[i]}\\ENV\\\"", buildArtifact : "*.*" , targetFolder : "\"TEMP\\${modifiedFolders[i]}\\ENV\\\"")
+                                        } else {
+                                            echo "${RED}${BOLD}No Dist folder exist${RESET}"
+                                        }                                                                
+                                    }                                                             
+                                }                       
+                            } catch (err) {
+                                buildStatus=FAILED
+                                echo "${RED}${BOLD}${err}${RESET}"
+                                sh 'exit 1'                          
+                            }
+                        }
+                    }                    
+                }
+            }            
+        }
+        stage("Artifactory"){
+            when {
+                allOf {
+                    expression{tagStatus == SUCCESS}
+                    expression{buildStatus == SUCCESS}
+                    expression{etcFolderStatus == false}
+                }                
+            }
+            stages {
+                stage("COPY ENV FILES"){
+                    steps {
+                        echo "${BGORANGE}${BOLD}------------PHASE: ARTRIFACTORY STEP:1 COPY ENV FILES-----------${RESET}"
+                        script {
+                            try {                        
+                                echo "${BLUE}Copying Artifacts ${targetDEVDeployFolder} .....${RESET}"                       
+                                if(fileExists("${targetBuildArtifacts}\\"))
+                                {                            
+                                    def deployFolderList = sh(script: 'cd ./TEMP;for i in */; do echo ${i%%/}; done', returnStdout: true).trim()
+                                    def deployFolder = deployFolderList.split("\n")
+                                    echo "deployFolder= ${deployFolder}"
+                                    for (int i = 0; i < deployFolder.size(); i++) {  
+                                        echo "${BLUE}${BOLD}Copying Env files from ${deployFolder[i]} for DEV${RESET}"
+                                        glDotNetStdCopyArtifacts( sourceFolder : "\"${targetBuildArtifacts}\\${deployFolder[i]}\\ENV\\DEV\\\"", buildArtifact : "*.*" , targetFolder : "\"${targetBuildArtifacts}\\${deployFolder[i]}\\\"")                                        
+                                        artifactoryStatus=SUCCESS
+                                    }                            
+                                } else {
+                                    echo "${RED}${BOLD}Artifacts does not exist.. Cannot copy env files. Exiting script!!!${RESET}"
+                                    artifactoryStatus=FAILED
+                                }                       
+                            } catch (err) {
+                                deployStatus=FAILED
+                                echo "${RED}${BOLD}${err}${RESET}"
+                                sh 'exit 1'                          
+                            }
+                        }
+                    }
+                }
+                stage("UPLOAD TO ARTIFACTORY") {
+                    steps { 
+                        echo "${BGORANGE}${BOLD}------------PHASE: ARTRIFACTORY STEP:2 ARTIFACTORY UPLOAD-----------${RESET}"
+                        script {
+                            def uploadSpec = """{
+                                            "files": [
+                                                {
+                                                "pattern": "**/*-dev-*.zip",
+                                                "target": "UHG-Releases/com/optum/omnichannel/apps/${appName}/Dev/"
+                                                }
+                                            ]
+                                            }"""
+                            try {
+                                if(fileExists(targetBuildArtifacts))  {
+                                    echo "${BLUE}Uploading to artifactory........."
+                                    bat """cd ${targetBuildArtifacts}\\
+                                        7z a ${tag}-dev-${BUILD_ID}.zip *"""
+                                    server.upload(uploadSpec)
+                                    echo "${RESET}"
+                                    artifactoryStatus = SUCCESS
+                                } else {
+                                    echo "${RED}${BOLD} No published folder present. Skipping artifactory${RESET}"
+                                    artifactoryStatus=SKIPPED
+                                }
+                                
+                            } catch (err) {
+                                artifactoryStatus = FAILED
+                                echo "${RED}${BOLD}${err}${RESET}"
+                                sh 'exit 1'
+                            }                    
+                        }	    
+                    }
+                }
+            }
+        }
+        stage("Deploy") {
+            when {
+                allOf {
+                    expression{tagStatus == SUCCESS}
+                    expression{buildStatus == SUCCESS}
+                    expression{artifactoryStatus == SUCCESS}
+                    expression{etcFolderStatus == false}
+                }                
+            }
+            stages{
+                stage("Download Tag from Artifactory"){
+                    steps {
+                        echo "${BGORANGE}${BOLD}-----------PHASE: DEPLOY STEP:1  DOWNLOAD TAG-----------${RESET}"
+                        echo "${BLUE}Downloading from artifactory........"
+                        script {
+                            def downloadSpec = """{"files": [{
+                                                                "pattern": "UHG-Releases/com/optum/omnichannel/apps/${appName}/Dev/${tag}-dev-${BUILD_ID}.zip",
+                                                                "target": "${targetBuildArtifacts}\\DOWNLOAD\\",
+                                                                "flat": "true",
+                                                                "explode": "true"
+                                                                }]
+                                                    }"""
+                            try{
+                                server.download(downloadSpec)   
+                                echo "${RESET}"                                                                  
+                                deployStatus=SUCCESS
+                            } catch (err) {
+                                deployStatus=FAILED
+                                echo "${RED}${BOLD}${err}${RESET}"
+                                sh 'exit 1'                          
+                            }                            
+                        }
+                    }
+                }
+                stage("Deploy Artifacts"){
+                    when {
+                        allOf {
+                            expression{deployStatus == SUCCESS}                           
+                        }                
+                    }
+                    steps {
+                        echo "${BGORANGE}${BOLD}-----------PHASE: DEPLOY STEP:2  DEPLOY ARTIFACTS-----------${RESET}"
+                        script {
+                            try {                        
+                                echo "${BLUE}Copying Artifacts ${targetDEVDeployFolder} .....${RESET}"                       
+                                if(fileExists("${targetBuildArtifacts}\\DOWNLOAD\\"))
+                                {                            
+                                    def deployFolderList = sh(script: 'cd ./TEMP/DOWNLOAD;for i in */; do echo ${i%%/}; done', returnStdout: true).trim()
+                                    def deployFolder = deployFolderList.split("\n")
+                                    echo "deployFolder= ${deployFolder}"
+                                    for (int i = 0; i < deployFolder.size(); i++) {                                 
+                                        glDotNetStdCopyArtifacts( sourceFolder : "\"${targetBuildArtifacts}\\DOWNLOAD\\${deployFolder[i]}\\\"", buildArtifact : "*.*" , targetFolder : "${targetDEVDeployFolder}\\${deployFolder[i]}\\")                                        
+                                        deployStatus=SUCCESS
+                                    }                            
+                                } else {
+                                    echo "${RED}${BOLD}Artifacts does not exist.. Cannot deploy. Exiting script!!!${RESET}"
+                                    deployStatus=FAILED
+                                }                       
+                            } catch (err) {
+                                deployStatus=FAILED
+                                echo "${RED}${BOLD}${err}${RESET}"
+                                sh 'exit 1'                          
+                            }
+                        }
+                    }
+                }
+            }            
+        }
+        stage("Report") {
+            when {
+                allOf {
+                    expression{tagStatus == SUCCESS}
+                    expression{buildStatus == SUCCESS}
+                    expression{artifactoryStatus == SUCCESS}
+                    expression{deployStatus == SUCCESS}
+                    expression{etcFolderStatus == false}
+                }                
+            }
+            steps {
+                echo "${BGORANGE}${BOLD}------------TAGGING-----------${RESET}"
+                script {
+                    try{
+                       
+                        bat "git tag -a ${tag}-dev-${BUILD_ID} -m \"${tag}-dev-${BUILD_ID}\""
+                        bat "git push origin ${tag}-dev-${BUILD_ID}"
+                                                            
+                        taggingStatus=SUCCESS
+                    } catch (err) {
+                        echo 'Tagging failed. Unable to find a pull request'
+                        echo "${RED}${BOLD}${err}${RESET}"
+                        taggingStatus=FAILED
+                        sh 'exit 1'                          
+                    }                
+                }
+            }
+        }
+        stage("Publish Hygieia") {  
+            when {
+                allOf {
+                    expression{tagStatus == SUCCESS}
+                    expression{buildStatus == SUCCESS}
+                    expression{artifactoryStatus == SUCCESS}
+                    expression{deployStatus == SUCCESS}
+                    expression{etcFolderStatus == false}
+                    expression{taggingStatus == SUCCESS}
+                }                
+            }         
+            steps {
+                echo "${BGORANGE}${BOLD}------------PUBLISHING-----------${RESET}"
+                script {
+                    try{                       
+                       def hygieiaTag = "${tag}-dev-${BUILD_ID}"
+                       echo "${hygieiaTag}"
+                        hygieiaDeployPublishStep applicationName: "${hygieiaAppName}", artifactDirectory: "\\TEMP", artifactGroup: "WWE", artifactName: "*.zip", artifactVersion: "${hygieiaTag}", buildStatus: "Success", environmentName: "${environment}"
+                    } catch (err) {
+                        echo 'Publishing failed.'
+                        echo "${RED}${BOLD}${err}${RESET}"
+                        taggingStatus=FAILED
+                        sh 'exit 1'                          
+                    }                
+                }
+            }
+        }             
+    }
+    post {        
+        success {
+            echo 'This will run only if success'
+            emailext attachmentsPattern: 'fortifyscan_results.pdf',
+                        body:  "Job Status: <font color='#006600'>${currentBuild.currentResult}</font><br>" +
+                            "Build URL: ${BUILD_URL} <br>" +
+		                    "Build Job: $JOB_NAME <br><br><br>" +                        
+                            "${emailContent}",
+                        to:"${toEmail}",              
+                        subject: "${appName}: DEV Build: ${currentBuild.currentResult}",
+                        mimeType: 'text/html'
+        }
+        failure {
+            echo 'This will run only if failed'
+            emailext attachmentsPattern: 'fortifyscan_results.pdf',
+                        body:  "Build Status: <font color='red'>${currentBuild.currentResult}</font><br>" +
+                            "Build URL: ${BUILD_URL} <br>" +
+		                    "Build Job: $JOB_NAME <br><br><br>" +                      
+                            "${emailContent}",
+                        to:"${toEmail}",                        
+                        subject: "${appName}: DEV Build: ${currentBuild.currentResult}",
+                        mimeType: 'text/html'
+        }
+        unstable {
+            echo 'This will run only if the run was marked as unstable'
+        }
+        changed {
+            echo 'This will run only if the state of the Pipeline has changed'
+            echo 'For instance, if the Pipeline was previously failing but is now successful'
+        }
+        always {
+            echo 'This will always run.'
+            script {
+                emailContent = """\
+                    <html>
+                        <head>
+                                <style>
+                                    table, th, td {
+                                    padding: 10px;
+                                    border: 1px solid black; 
+                                    border-collapse: collapse;
+                                    }
+                                </style>
+                        </head>
+                        <body>
+                            <table style="width:300px;margin:0;font-size: 12px;">
+                                <tr style="background-color:#ccf5ff;">
+                                    <th>Steps</th>
+                                    <th>Status</th>                                            
+                                </tr>                                
+                                <tr style="background-color:#F8F8F8;"><td>CheckOut</td><td>${checkoutStatus}</td></tr> 
+                                <tr style="background-color:#F8F8F8;"><td>Fortify Scan</td><td>${sonarStatus}</td></tr>                                  
+                                <tr style="background-color:#F8F8F8;"><td>Fortify Scan</td><td>${fortifyStatus}</td></tr>
+                                <tr style="background-color:#F8F8F8;"><td>Build</td><td>${buildStatus}</td></tr>
+                                <tr style="background-color:#F8F8F8;"><td>Deploy</td><td>${deployStatus}</td></tr>
+                                <tr style="background-color:#F8F8F8;"><td>Tagging</td><td>${taggingStatus}</td></tr>
+                                <tr style="background-color:#F8F8F8;"><td>Deploy Tag</td><td>${tag}-dev-${BUILD_ID}</td></tr>
+								<tr style="background-color:#F8F8F8;"><td>Deploy Target</td><td>${targetDEVDeployFolder}</td></tr>                                    
+                            </table><br><br>
+                            <table style="width:900px;margin:0;font-size: 14px;">
+                                <tr style="background-color:#ccf5ff;" >
+                                    <th>Modified File List</th>
+                                    <th>TimeStamp</th>
+                                    <th>Author</th>
+                                    <th>Commit ID</th>
+                                </tr>
+                                ${modifiedFiles}                                        
+                            </table>
+                        </body>
+                    </html>
+                """
+            }            
+        }            
+    }
+}
+@NonCPS
+List getChangedFolders() {
+    List modifiedFolders = []
+    def modifiedFiles
+    def fullFileList=""    
+    def changeLogSets = currentBuild.changeSets
+    for (int i = 0; i < changeLogSets.size(); i++) {
+        def entries = changeLogSets[i].items
+        for (int j = 0; j < entries.length; j++) {
+            def entry = entries[j]
+            def files = new ArrayList(entry.affectedFiles)           
+            for (int k = 0; k < files.size(); k++) {
+                def file = files[k]                
+                def folder = file.path.split("/")
+                fullFileList += "${WORKSPACE}\\" + file.path+"\n"               
+                if(folder.size() > 1){
+                    modifiedFolders.add(folder[0])                                        
+                }
+                modifiedFiles += "<tr style=\"background-color:#EAEAEA;\"><td>${file.path}</td><td>${new Date(entry.timestamp)}</td><td>${entry.author}</td><td>${entry.commitId}</td></tr>"         
+            }            
+        }
+    }
+if(!modifiedFiles){
+    modifiedFiles = "<tr style=\"background-color:#EAEAEA;\"><td>No Modified files</td><td>NA</td><td>NA</td><td>NA</td></tr>"
+}
+modifiedFolders.unique()
+return [modifiedFolders, modifiedFiles, fullFileList]
+}

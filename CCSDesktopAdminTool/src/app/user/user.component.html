@@ -1,0 +1,253 @@
+﻿<nav-menu (emitEvent)="businessUnitChangeEvent($event)"></nav-menu>
+
+<p-panel>
+    <div style="word-wrap: break-word;">        
+        <p-table #dt 
+        [value]="agentDetails"        
+        [rows]="10" [pageLinks]="3" [showCurrentPageReport]="true" [paginator]="true" [rowsPerPageOptions]="[10,25,50]"
+        currentPageReportTemplate="Showing {first} to {last} of {totalRecords} entries"         
+        scrollable="true"  
+        scrollHeight="400px"  
+        scrollWidth="autocomplete" 
+        (onPageChange)="paginate($event)" >
+            <ng-template pTemplate="caption"> 
+                    <div class="ui-helper-clearfix" style="width:100%">
+                        <a  title="Add" style="float:left;color: blue; cursor: pointer" (click)="ShowAddDialog()" icon="fa-plus" *ngIf="addButtonVisible  == true">Create </a>
+                    </div>
+                    <center>User Management</center>                    
+            </ng-template>
+            <ng-template pTemplate="header">
+                <tr>
+                    <th pSortableColumn="AgentPhoneID">Agent Phone <p-sortIcon field="AgentPhoneID"></p-sortIcon></th>
+                    <th pSortableColumn="AgentRole">AgentRole <p-sortIcon field="AgentRole"></p-sortIcon></th>
+                    <th pSortableColumn="BuId">BuId <p-sortIcon field="BuId"></p-sortIcon></th>
+                    <th pSortableColumn="DomainName">Domain <p-sortIcon field="DomainName"></p-sortIcon></th>
+                    <th pSortableColumn="DomainId">Windows NT ID <p-sortIcon field="DomainId"></p-sortIcon></th>
+                    <th pSortableColumn="agent_login_status">Agent Login Status <p-sortIcon field="agent_login_status"></p-sortIcon></th>
+                    <th pSortableColumn="agent_last_login_dttm">Last Login <p-sortIcon field="agent_last_login_dttm"></p-sortIcon></th>
+                    <th pSortableColumn="AccessFlag">Admin Status <p-sortIcon field="AccessFlag"></p-sortIcon></th>
+                    <th pSortableColumn="Role">Agent Role <p-sortIcon field="Role"></p-sortIcon></th>
+                    <th>Actions</th>
+                    
+                </tr>
+                <tr>
+                    <th>
+                        <input style="width:100%" pInputText type="text" (input)="dt.filter($event.target.value, 'AgentPhoneID', 'contains')" placeholder="" class="p-column-filter">
+                    </th>
+                    <th>
+                        <input style="width:100%" pInputText type="text" (input)="dt.filter($event.target.value, 'AgentRole', 'contains')" placeholder="" class="p-column-filter">
+                    </th>
+                    <th>
+                        <input style="width:100%" pInputText type="text" (input)="dt.filter($event.target.value, 'BuId', 'contains')" placeholder="" class="p-column-filter">
+                    </th>
+                    <th>
+                        <input style="width:100%" pInputText type="text" (input)="dt.filter($event.target.value, 'DomainName', 'contains')" placeholder="" class="p-column-filter">
+                    </th>
+                    <th>
+                        <input style="width:100%" pInputText type="text" (input)="dt.filter($event.target.value, 'DomainId', 'contains')" placeholder="" class="p-column-filter">
+                    </th>
+                    <th>
+                        <input style="width:100%" pInputText type="text" (input)="dt.filter($event.target.value, 'agent_login_status', 'contains')" placeholder="" class="p-column-filter">
+                    </th>
+                    <th>
+                        <input style="width:100%" pInputText type="text" (input)="dt.filter($event.target.value, 'agent_last_login_dttm', 'contains')" placeholder="" class="p-column-filter">
+                    </th>
+                    <th>
+                        <input style="width:100%" pInputText type="text" (input)="dt.filter($event.target.value, 'AccessFlag', 'contains')" placeholder="" class="p-column-filter">
+                    </th>
+                    <th>
+                        <input style="width:100%" pInputText type="text" (input)="dt.filter($event.target.value, 'Role', 'contains')" placeholder="" class="p-column-filter">
+                    </th>
+                    <th></th>
+                </tr>
+            </ng-template>
+            <ng-template pTemplate="body" let-rowData let-col>
+                <tr>
+                    <td>{{col.AgentPhoneID}}  </td>
+                    <td>{{col.AgentRole}}  </td>
+                    <td>{{col.BuId}}  </td>
+                    <td>{{col.DomainName}}  </td>
+                    <td>{{col.DomainId}}  </td>
+                    <td>{{col.agent_login_status}}  </td>
+                    <td>{{col.agent_last_login_dttm}}  </td>
+                    <td>{{col.AccessFlag}}  </td>
+                    <td>{{col.Role}}  </td>
+                    <td>
+                        <button title="Edit" *ngIf="col.editButtonVisible  == true" pButton pRipple icon="pi pi-pencil" 
+                        class="p-button-rounded p-button-success p-mr-2" (click)="ShowEditDialog(rowData,i,'Edit')"></button>
+                        
+                        <button title="View" *ngIf="col.viewButtonVisible  == true" pButton pRipple 
+                        icon="pi pi-window-maximize" 
+                        class="p-button-rounded p-button-primary" (click)="showDialogToAdd(rowData,i,'Select')"></button>
+
+                        <button title="Approve" *ngIf="col.approveButtonVisible  == true" pButton pRipple 
+                        icon="pi pi-check" 
+                        class="p-button-rounded p-button-primary" (click)="Approve(rowData)"></button>
+                       
+                        <button title="Add to New BU" *ngIf="col.addBuButtonVisible  == true" pButton pRipple 
+                        icon="pi pi-user-plus" 
+                        class="p-button-rounded p-button-primary" (click)="ShowAddBUDialog(rowData,i)"></button>
+
+                    </td>
+                </tr>
+            </ng-template>
+            
+
+           
+        </p-table>
+    </div>
+</p-panel>
+
+<p-dialog header="Create User" [style]="{width: '50vw'}" [(visible)]="addDialog" [responsive]="true" showEffect="fade" [modal]="true">
+    <form #addUserForm="ngForm"  (ngSubmit)="createUser(addUserForm)" autocomplete="off" novalidate>      
+                <div class="form-group" [ngClass]="{'error': addUserForm.controls.DomainId?.invalid && addUserForm.controls.DomainId?.touched}">
+                    <label for="DomainId">Domain Id:</label>
+                    <em *ngIf="addUserForm.controls.DomainId?.invalid && (addUserForm.controls.DomainId?.touched )">Required</em>
+                    <input [(ngModel)]="agentDetail.DomainId" name="DomainId" required id="DomainId" type="text" class="form-control" placeholder="Your Domain Id..." />
+                </div>
+                <div class="form-group" [ngClass]="{'error': addUserForm.controls.DomainName?.invalid && addUserForm.controls.DomainName?.touched}" >
+                <label for="DomainName">Domain Name:</label>
+                <em *ngIf="addUserForm.controls.DomainName?.invalid && (addUserForm.controls.DomainName?.touched )">Required</em>
+                <input [(ngModel)]="agentDetail.DomainName" name="DomainName" id="DomainName" type="text" class="form-control" placeholder="Your Domain Name..." required/>
+                </div> 
+                <div class="form-group" [ngClass]="{'error': addUserForm.controls.BusinessUnit?.invalid && addUserForm.controls.BusinessUnit?.touched }">
+                <label for="BusinessUnit">Business Unit:</label>
+                <em *ngIf="addUserForm.controls.BusinessUnit?.invalid && (addUserForm.controls.BusinessUnit?.touched )">Required</em>
+                <select  name="BusinessUnit"  class="form-control" required  [(ngModel)]="BusinessUnit" >
+                    <option value="" [selected]="BusinessUnit == 0">Select Business Unit...</option>
+                    <option *ngFor="let bu of businessUnits" value={{bu.Business_Unit_Id}}>  
+                                    {{bu.Business_Unit_Nm}}  
+                    </option>  
+                </select>
+                </div>  
+                <div class="form-group" [ngClass]="{'error': addUserForm.controls.AgentRole?.invalid && addUserForm.controls.AgentRole?.touched }">
+                <label for="AgentRole">Agent Role:</label>
+                <em *ngIf="addUserForm.controls.AgentRole?.invalid && (addUserForm.controls.AgentRole?.touched )">Required</em>
+               
+                <select  name="AgentRole"  class="form-control" required  [(ngModel)]="agentDetail.AgentRole" >
+                    <option *ngFor="let role of _AgentRoleList" value={{role.AgentRoleId}}>  
+                                    {{role.AgentRoleName}}  
+                    </option>  
+                    <!--<option value="1" [selected]="AgentRole == 1">Enterprise Admin</option>
+                    <option value="2" [selected]="AgentRole == 2">Business Unit Admin</option>
+                    <option value="3" [selected]="AgentRole == 3">Business Supervisor</option>
+                    <option value="4" [selected]="AgentRole == 4">Business User</option>
+                    <option value="5" [selected]="AgentRole == 5">Enterprise User</option>-->
+                </select>
+                </div>     
+                <span>   
+                    <button type="submit" class="btn btn-primary" [disabled]="addUserForm.invalid">Save</button>
+                    <button type="button" style="margin-left: 5px;"  class="btn btn-default" (click)="cancelAddDialog()">Cancel</button>
+                </span>
+                <br/>
+                
+            </form>
+            
+</p-dialog>
+
+<p-dialog [header]="EditHeader" [style]="{width: '50vw'}"  [(visible)]="editDialog" [responsive]="true" showEffect="fade" [modal]="true">
+    <form #editUserForm="ngForm"  (ngSubmit)="editUser(editUserForm)" autocomplete="off" novalidate>      
+                <div class="form-group" [ngClass]="{'error': editUserForm.controls.DomainId?.invalid && editUserForm.controls.DomainId?.touched}">
+                    <label for="DomainId">Domain Id:</label>
+                    <em *ngIf="editUserForm.controls.DomainId?.invalid && (editUserForm.controls.DomainId?.touched )">Required</em>
+                    <input disabled="true" [(ngModel)]="agentDetail.DomainId" name="DomainId" required id="DomainId" type="text" class="form-control" placeholder="Your Domain Id..." />
+                </div>
+                <div class="form-group" [ngClass]="{'error': editUserForm.controls.DomainName?.invalid && editUserForm.controls.DomainName?.touched}" >
+                <label for="DomainName">Domain Name:</label>
+                <em *ngIf="editUserForm.controls.DomainName?.invalid && (editUserForm.controls.DomainName?.touched )">Required</em>
+                <input disabled="true" [(ngModel)]="agentDetail.DomainName" name="DomainName" id="DomainName" type="text" class="form-control" placeholder="Your Domain Name..." required/>
+                </div> 
+                <div class="form-group" [ngClass]="{'error': editUserForm.controls.BusinessUnit?.invalid && editUserForm.controls.BusinessUnit?.touched }">
+                <label for="BusinessUnit">Business Unit:</label>
+                <em *ngIf="editUserForm.controls.BusinessUnit?.invalid && (editUserForm.controls.BusinessUnit?.touched )">Required</em>
+                <select  name="BusinessUnit"  class="form-control" required  [(ngModel)]="BusinessUnit" >
+                    <option value="" [selected]="BusinessUnit == 0">Select Business Unit...</option>
+                    <option *ngFor="let bu of businessUnits" value={{bu.Business_Unit_Id}}>  
+                                    {{bu.Business_Unit_Nm}}  
+                    </option>  
+                </select>
+                </div>  
+                <div class="form-group" [ngClass]="{'error': editUserForm.controls.AgentRole?.invalid && editUserForm.controls.AgentRole?.touched }">
+                <label for="AgentRole">Agent Role:</label>
+                <em *ngIf="editUserForm.controls.AgentRole?.invalid && (editUserForm.controls.AgentRole?.touched )">Required</em>
+               
+                <select  name="AgentRole"  class="form-control" required  [(ngModel)]="agentDetail.AgentRole" >
+                    <!--<option value="1" [selected]="AgentRole == 1">Enterprise Admin</option>
+                    <option value="2" [selected]="AgentRole == 2">Business Unit Admin</option>
+                    <option value="3" [selected]="AgentRole == 3">Business Supervisor</option>
+                    <option value="4" [selected]="AgentRole == 4">Business User</option>
+                    <option value="5" [selected]="AgentRole == 5">Enterprise User</option>-->
+                    <option *ngFor="let role of _AgentRoleList" value={{role.AgentRoleId}}>  
+                                    {{role.AgentRoleName}}  
+                    </option>  
+                </select>
+                </div>     
+                <span >   
+                    <button type="submit" class="btn btn-primary" [disabled]="editUserForm.invalid" *ngIf="isEditMode == true">Save</button>
+                    <button type="button" style="margin-left: 5px;" class="btn btn-default" (click)="cancelEdit()">Cancel</button>
+                </span>
+                <br/>
+                
+            </form>
+            
+</p-dialog>
+
+<p-dialog header="Add New BU" [style]="{width: '50vw'}" [(visible)]="addBUDialog" [responsive]="true" showEffect="fade" [modal]="true">
+    <form #addBUUserForm="ngForm"   (ngSubmit)="addBUUser(addBUUserForm)" autocomplete="off" novalidate>      
+                <!--<div class="form-group" style="display: none">
+                    <input [(ngModel)]="agentDetail.DomainId" name="DomainId" required id="DomainId" type="text" class="form-control"  />
+                </div>-->
+                <div class="form-group" [ngClass]="{'error': addBUUserForm.controls.DomainId?.invalid && addBUUserForm.controls.DomainId?.touched}">
+                    <label for="DomainId">Domain Id:</label>
+                    <input  disabled="true"  [(ngModel)]="agentDetail.DomainId" name="DomainId" required id="DomainId" type="text" class="form-control"  />
+                </div>
+                <div class="form-group" [ngClass]="{'error': addBUUserForm.controls.DomainName?.invalid && addBUUserForm.controls.DomainName?.touched}" >
+                <label for="DomainName">Domain Name:</label>
+                <input  disabled="true"  [(ngModel)]="agentDetail.DomainName" name="DomainName" id="DomainName" type="text" class="form-control"  required/>
+                </div> 
+                <div class="form-group" [ngClass]="{'error': addBUUserForm.controls.BusinessUnit?.invalid && addBUUserForm.controls.BusinessUnit?.touched }">
+                <label for="BusinessUnit">Business Unit:</label>
+                <em *ngIf="addBUUserForm.controls.BusinessUnit?.invalid && (addBUUserForm.controls.BusinessUnit?.touched )">Required</em>
+                <select  name="BusinessUnit"  class="form-control" required  [(ngModel)]="BusinessUnit" >
+                    <option value="" [selected]="BusinessUnit == 0">Select Business Unit...</option>
+                    <option *ngFor="let bu of businessUnits" value={{bu.Business_Unit_Id}}>  
+                                    {{bu.Business_Unit_Nm}}  
+                    </option>  
+                </select>
+                </div>  
+                <div class="form-group" [ngClass]="{'error': addBUUserForm.controls.AgentRole?.invalid && addBUUserForm.controls.AgentRole?.touched }">
+                <label for="AgentRole">Agent Role:</label>
+                <em *ngIf="addBUUserForm.controls.AgentRole?.invalid && (addBUUserForm.controls.AgentRole?.touched )">Required</em>
+               
+                <select  name="AgentRole"  class="form-control" required  [(ngModel)]="agentDetail.AgentRole" >
+                    <option value="1" [selected]="AgentRole == 1">Enterprise Admin</option>
+                    <option value="2" [selected]="AgentRole == 2">Business Unit Admin</option>
+                    <option value="3" [selected]="AgentRole == 3">Business Supervisor</option>
+                    <option value="4" [selected]="AgentRole == 4">Business User</option>
+                    <option value="5" [selected]="AgentRole == 5">Enterprise User</option>
+                </select>
+                </div>     
+                <span >   
+                    <button type="submit" class="btn btn-primary" [disabled]="addBUUserForm.invalid">Save</button>
+                    <button type="button" style="margin-left: 5px;" class="btn btn-default" (click)="canceladdBUUser()">Cancel</button>
+                </span>
+                <br/>
+                
+            </form>
+            
+</p-dialog>
+
+
+<p-dialog header="Message"  height="400" [(visible)]="ShowMessage" [responsive]="true" showEffect="fade" [modal]="true">
+    <form #ShowMessageForm="ngForm"   autocomplete="off" novalidate>      
+                <div class="panel-body" style="text-align: center;color: red">
+                   {{ShowMessageText}}
+                </div>    
+                <span>   
+                    <button type="button"  class="btn btn-default" (click)="cancelShowMessage()">ok</button>
+                </span>
+                <br/>
+                
+            </form>
+            
+</p-dialog>

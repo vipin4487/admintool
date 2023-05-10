@@ -1,0 +1,609 @@
+#!/usr/bin/env groovy
+
+@Library("global-pipeline-library@master") _
+/***** EMAIL COLOR SCHEME ********/
+SKIPPED="<font color='red'>SKIPPED</font>"
+SUCCESS="<font color='#006600'>SUCCESS</font>"
+FAILED="<font color='red'>FAILED</font>"
+/***** END EMAIL COLOR SCHEME ********/
+/******COLOR CONFIG******/
+def RESET="\u001B[0m\n"
+def RED="\u001b[31;1m"
+def GREEN="\u001b[32;1m"
+def BLUE="\u001b[34;1m"
+def ORANGE="\u001b[38;2;255;165;0m"
+def BGRED="\u001b[41m"
+def BGGREEN="\u001b[42m"
+def BGYELLOW="\u001b[43m"
+def BGBLUE="\u001b[44m"
+def BGORANGE="\u001b[48;2;255;165;0m"
+def ULINE="\u001b[4m"
+def BOLD="\u001b[1m"
+/***** STAGE STATUS ********/
+def checkoutStatus=SKIPPED
+def cleanupStatus=SKIPPED
+def artifactoryStatus=SKIPPED
+def deployStatus=SKIPPED
+def taggingStatus=SKIPPED
+/*****EOD STAGE STATUS ********/
+/***** SERVER DETAILS ********/
+def DMZ="DMZ"
+def CORE="CORE"
+def targetDeployFolder
+/*****EOD SERVER STATUS ********/
+def folders
+def tag_response
+def prod_tag
+def prodMinusOne=false
+def prodTicketNumber
+def tagLimit=20
+def performTagging=true
+def inputTimeLimit=5
+def inputTimeLimitUnit='MINUTES'
+def targetBuildArtifacts
+def manifest
+def manifestXML = "deployit-manifest.xml"
+def appName = "Desktop-Angular"
+def hygieiaAppName = "OmniChat-Desktop-Angular"
+def environment = "PROD"
+//def toEmail = "kalyan.senthilnathan@optum.com"
+def toEmail = "Vanguard_DL@ds.uhc.com;Pioneers_DL@ds.uhc.com;omni_cicd-1_DL@ds.uhc.com;OMNI_DEV_WWE_LEADS@ds.uhc.com"
+def server = Artifactory.server('-1381075113@1458159651773')
+server.credentialsId = 'omni_cicd'
+/*************************************************
+    Update this script only for PROD changes 
+**************************************************/
+
+pipeline {
+	agent {
+		label 'K8WinSlave1'
+	}
+	options {
+        ansiColor('xterm')
+	    timestamps()
+    }	
+	stages {		
+		stage("CHECKOUT"){
+			stages {
+				stage("GET FOLDER NAME TO DEPLOY"){
+					steps {						
+						echo "${BGORANGE}${BOLD}------------PHASE: CHECKOUT STEP:1 GET FOLDER NAME TO DEPLOY-----------${RESET}"
+						script {							
+							try{
+								targetBuildArtifacts = "${WORKSPACE}\\TEMP"
+								folders = sh(script: 'for i in */; do echo ${i%%/}; done', returnStdout: true).trim()
+								if(folders){									
+									echo "${BLUE}${BOLD}****Choose Application to deploy to PROD****${RESET}"
+									timeout(time: inputTimeLimit, unit: inputTimeLimitUnit) {
+										folder_response = input message: 'Choose Application to deploy to PROD',
+										parameters: [choice(choices: "${folders}",  description: 'Choose Application to deploy to PROD', name: 'Choose LOB')]
+									}							
+									echo "${BLUE}${BOLD}Application to Deploy: ${folder_response}${RESET}"
+									checkoutStatus=SUCCESS
+								} else {
+									echo "${RED}${BOLD}No folders found. Exiting script!!!${RESET}"
+									checkoutStatus=SKIPPED
+									sh 'exit 0'
+								}
+							} catch(err) {
+								echo "${RED}${BOLD}${err}${RESET}"
+								checkoutStatus=FAILED
+								sh 'exit 1'
+							}
+						}
+					}					
+				}				
+				stage("GET TAG NAME TO DEPLOY"){
+					steps{
+						echo "${BGORANGE}${BOLD}------------PHASE: CHECKOUT STEP:2 GET TAG NAME TO DEPLOY-----------${RESET}"						
+						script{
+							def tags
+							try{								
+								sh 'git fetch origin --prune --prune-tags'						
+								tags = sh(script: "git tag -l ${folder_response}-*-stg-* --sort=-creatordate | head -${tagLimit}", returnStdout: true).trim()
+								if(tags){
+									echo "${BLUE}${BOLD}****Choose Tag for Application to deploy to PROD****${RESET}"
+									timeout(time: inputTimeLimit, unit: inputTimeLimitUnit) {
+										tag_response = input message: 'Choose Tag for Application to deploy to PROD',
+										parameters: [choice(choices: "${tags}",  description: 'Choose Tag for Application to deploy to PROD', name: 'Choose Tags')]
+									}									
+									if(tag_response){
+										echo "${BLUE}${BOLD}Tags to Deploy: ${tag_response}${RESET}"
+										checkoutStatus=SUCCESS
+									} else {
+										echo "${RED}${BOLD}No Tags selected for deployment.  Exiting script!!!${RESET}"
+										checkoutStatus=SKIPPED
+									}														
+								} else {
+									echo "${RED}${BOLD}No Tags found for ${folder_response} for deployment. Exiting script!!!${RESET}"
+									checkoutStatus=SKIPPED
+									sh 'exit 0'
+								}	
+							} catch(err) {
+								echo "${RED}${BOLD}${err}${RESET}"
+								checkoutStatus=FAILED
+								sh 'exit 1'
+							}
+						}
+					}
+				}
+				stage("GET PROD MINUS ONE FOLDER"){
+					steps {						
+						echo "${BGORANGE}${BOLD}------------PHASE: CHECKOUT STEP:3 GET FOLDER NAME TO DEPLOY-----------${RESET}"
+						script {							
+							try{								
+								echo "${BLUE}${BOLD}****Check for Prod - 1 deployment****${RESET}"
+								timeout(time: inputTimeLimit, unit: inputTimeLimitUnit) {									
+									boolean_response = input message: "${RED}${BOLD} Has the tag deployed in STAGE And Tested??. ${RESET}", ok: 'Yes'
+								}
+								prodMinusOne = true	
+								checkoutStatus=SUCCESS									 
+							} catch(err) {
+								echo "${RED}${BOLD}${err}${RESET}"
+								checkoutStatus=FAILED
+								sh 'exit 1'
+							}
+						}
+					}										
+				}
+				stage("GET PROD CHANGE TICKET NUMBER"){
+					steps {						
+						echo "${BGORANGE}${BOLD}------------PHASE: CHECKOUT STEP:4 GET PROD CHANGE TICKET NUMBER-----------${RESET}"
+						script {							
+							try{
+								timeout(time: inputTimeLimit, unit: inputTimeLimitUnit) {
+									prodTicketNumber = input(
+														id: 'userInput', message: 'Enter PROD Change control Ticket Number', parameters: [
+														[$class: 'TextParameterDefinition', defaultValue: '', description: 'Enter PROD Change control Ticket Number', name: 'ticket']
+													])
+								}
+								echo "${BLUE}${BOLD}Prod Change ticket number: ${prodTicketNumber}${RESET}"
+								if(!prodTicketNumber){
+									echo "${RED}${BOLD}Not a valid ticket number. Exiting script${RESET}"
+									checkoutStatus=FAILED
+								}								
+								checkoutStatus=SUCCESS									 
+							} catch(err) {
+								echo "${RED}${BOLD}${err}${RESET}"
+								checkoutStatus=FAILED
+								sh 'exit 1'
+							}
+						}
+					}										
+				}
+				stage("CHECK FOR PREVIOUS DEPLOYMENT"){
+					steps{
+						echo "${BGORANGE}${BOLD}------------PHASE: CHECKOUT STEP:5 CHECK FOR PREVIOUS DEPLOYMENT-----------${RESET}"
+						script {		
+							try {
+								if(tag_response) {
+									prod_tag = sh(script: "sed \"s/stg/prod/g\" <<< \"${tag_response}\"", returnStdout: true).trim()
+									def prod_tagsList = sh(script: "git tag -l ${prod_tag}", returnStdout: true).trim()
+									if(prod_tagsList) {
+										timeout(time: inputTimeLimit, unit: inputTimeLimitUnit) {									
+											boolean_response = input message: "${BLUE}${BOLD}${tag_response} has already been deployed in PROD. Do you still wish to deploy again?${RESET}", ok: 'Yes'
+										}
+										performTagging = false													
+									}
+									checkoutStatus=SUCCESS
+								}
+							} catch(err) {
+								echo "${RED}${BOLD}${err}${RESET}"
+								checkoutStatus=FAILED
+								sh 'exit 1'
+							}			
+						}
+					}
+				}
+				stage("GET CORE OR DMZ SERVER TO DEPLOY"){
+					steps{
+						echo "${BGORANGE}${BOLD}------------PHASE: CHECKOUT STEP:2 GET TAG NAME TO DEPLOY-----------${RESET}"						
+						script{							
+							try{								
+								echo "${BLUE}${BOLD}****Choose Core or DMZ Server for Application to deploy to PROD****${RESET}"
+								timeout(time: inputTimeLimit, unit: inputTimeLimitUnit) {
+									server_response = input message: 'Choose Core or DMZ Server to deploy to PROD',
+									parameters: [choice(choices: ['CORE','DMZ'],  description: 'Choose Core or DMZ Server to deploy to PROD', name: 'Choose Core or DMZ Server')]
+								}									
+								if(server_response){
+									echo "${BLUE}${BOLD}Server to Deploy: ${server_response}${RESET}"
+									targetDeployFolder = server_response
+									checkoutStatus=SUCCESS
+								} else {
+									echo "${RED}${BOLD}No Servers selected for deployment.  Exiting script!!!${RESET}"
+									checkoutStatus=SKIPPED
+								}	
+							} catch(err) {
+								echo "${RED}${BOLD}${err}${RESET}"
+								checkoutStatus=FAILED
+								sh 'exit 1'
+							}
+						}
+					}
+				}
+			}
+		}
+		stage ('ARTIFACTORY') {
+			when {
+                allOf {
+                    expression{checkoutStatus == SUCCESS}								
+                }                
+            }
+			stages {
+				stage("CLEAN TARGET FOLDER"){
+					when {
+						allOf {							
+							expression{performTagging == true}			
+						}                
+					}
+					steps{
+						echo "Perform Tagging set to ${performTagging}"
+						echo "${BGORANGE}${BOLD}------------PHASE: ARTRIFACTORY STEP:1 PREPARING FOR DOWNLOAD-----------${RESET}"
+						script {							
+							if(fileExists(targetBuildArtifacts))  {
+								try {
+									bat "rmdir /Q /S \"${targetBuildArtifacts}\""
+									cleanupStatus=SUCCESS
+								} catch (err) {
+									echo "${RED}${err}${RESET}"
+									cleanupStatus=FAILED
+									sh 'exit 1'                          
+								}
+							} else {
+								echo "${BGBLUE}${BOLD}No Target folder exists. Proceeding...${RESET}"
+								cleanupStatus=SUCCESS
+							}
+						}
+					}					
+				}
+				stage("DOWNLOAD STG TAG FROM ARTIFACTORY"){
+					when {
+						allOf {
+							expression{cleanupStatus == SUCCESS}
+							expression{performTagging == true}	
+						}                
+            		}
+					steps {
+						echo "${BGORANGE}${BOLD}------------PHASE: ARTRIFACTORY STEP:2 PULL ${tag_response}.zip FROM ARTIFACTORY-----------${RESET}"
+						script{
+							def downloadSpec = """{"files": [{
+																"pattern": "UHG-Releases/com/optum/omnichannel/apps/${appName}/STG/${tag_response}.zip",
+																"target": "${targetBuildArtifacts}\\DOWNLOAD\\",
+																"flat": "true",
+																"explode": "true"
+																}]
+													}"""
+							try{
+								echo "${BLUE}Downloading from artifactory........"
+								server.download(downloadSpec)   
+								echo "${RESET}"
+								artifactoryStatus=SUCCESS
+								if(!fileExists("${targetBuildArtifacts}\\DOWNLOAD\\")){
+									echo "${RED}${BOLD}Artifactory download failed for: ${tag_response}.zip. Exiting Script!!!${RESET}"
+									artifactoryStatus=FAILED
+								}								
+							} catch(err){
+								echo "${RED}${BOLD}${err}${RESET}"
+								artifactoryStatus=FAILED
+								sh 'exit 1'
+							}
+						}	
+					}
+				}
+				stage("COPY ENV FILES"){
+					when {
+						allOf {							
+							expression{artifactoryStatus == SUCCESS}
+							expression{performTagging == true}							
+						}                
+            		}
+					steps{
+						echo "${BGORANGE}${BOLD}------------PHASE: ARTRIFACTORY STEP:3 COPY ENV FILES-----------${RESET}"
+						script{
+							try {                     
+								if(fileExists("${targetBuildArtifacts}\\DOWNLOAD\\"))
+								{	
+									def deployFolderList = sh(script: 'cd ./TEMP/DOWNLOAD;for i in */; do echo ${i%%/}; done', returnStdout: true).trim()		
+									def deployFolder = deployFolderList.split("\n")
+									for (int i = 0; i < deployFolder.size(); i++) {  
+										echo "${BLUE}${BOLD}Copying Env files from ${deployFolder[i]} for PROD${RESET}"
+										glDotNetStdCopyArtifacts( sourceFolder : "\"${targetBuildArtifacts}\\DOWNLOAD\\${deployFolder[i]}\\ENV\\PRD\\\"", buildArtifact : "*.*" , targetFolder : "\"${targetBuildArtifacts}\\DOWNLOAD\\${deployFolder[i]}\\\"")										
+										artifactoryStatus=SUCCESS
+									}                            
+								} else {
+									echo "${RED}${BOLD}Artifacts does not exist.. Cannot deploy. Exiting script!!!${RESET}"
+									artifactoryStatus=FAILED
+								}                        
+							} catch (err) {
+								artifactoryStatus=FAILED
+								echo "${RED}${err}${RESET}"
+								sh 'exit 1'                          
+							}
+						}
+					}
+				}
+				stage("UPLOAD PROD TAG TO ARTIFACTORY"){
+					when {
+						allOf {
+							expression{performTagging == true}
+							expression{artifactoryStatus == SUCCESS}
+						}                
+            		}
+					steps{
+						echo "${BGORANGE}${BOLD}------------PHASE: ARTRIFACTORY STEP:4 UPLOAD PROD TAG TO ARTIFACTORY-----------${RESET}"
+						script {
+							def uploadSpec = """{
+                                    "files": [
+                                        {
+                                        "pattern": "**/*-prod-*.zip",
+                                        "target": "UHG-Releases/com/optum/omnichannel/apps/${appName}/PROD/"
+                                        }
+                                    ]
+                                    }"""
+							try {
+								if(fileExists("${targetBuildArtifacts}\\DOWNLOAD\\"))  {
+									echo "${BLUE}Uploading to artifactory........."
+									bat """cd ${targetBuildArtifacts}\\DOWNLOAD\\
+										7z a ${prod_tag}.zip *"""
+									server.upload(uploadSpec)
+									echo "${RESET}"
+									artifactoryStatus = SUCCESS
+								} else {
+									echo "${RED}${BOLD} No published folder present. Skipping artifactory upload${RESET}"
+									artifactoryStatus=SKIPPED
+								}
+								
+							} catch (err) {
+								artifactoryStatus = FAILED
+								echo "${RED}${BOLD}${err}${RESET}"
+								sh 'exit 1'
+							}
+						}
+					}
+				}				
+			}			
+		}
+		stage ('DEPLOY') {
+			when {
+                allOf {
+                    expression{checkoutStatus == SUCCESS}
+					expression{performTagging == false || artifactoryStatus == SUCCESS}
+                }                
+            }			
+			stages {
+				stage('Create XLDeploy XML') {
+					when {
+						allOf {							
+							expression{performTagging == true}
+						}                
+					}
+					steps{ 
+						echo "${BGORANGE}${BOLD}------------PHASE: XLDEPLOY STEP:1 CREATING XML FILE-----------${RESET}"						
+						script {																
+							manifest = """<?xml version=\\"1.0\\" encoding=\\"UTF-8\\"?>
+										<udm.DeploymentPackage version=\\"${prod_tag}\\" name=\\"${prod_tag}\\" application=\\"${appName}\\">
+											<deployables>
+												<file.File name=\\"${prod_tag}.bat\\">
+													<fileUri>https://github.optum.com/raw/CCSDesktop/Kana-Prechat-Migration/dev2/etc/xlDeployInstall.bat</fileUri>
+													<targetPath>E:/XLDeploy-AppDeploy</targetPath>
+												</file.File>
+												<file.Folder name=\\"${prod_tag}\\">
+													<fileUri>https://repo1.uhc.com/artifactory/UHG-Releases/com/optum/omnichannel/apps/${appName}/PROD/${prod_tag}.zip</fileUri>
+													<targetPath>E:/XLDeploy-AppDeploy</targetPath>
+												</file.Folder>
+												<cmd.Command name=\\"${prod_tag}-remove-staging-dir\\">
+													<order>50</order>
+													<commandLine>RMDIR /S /Q "E:\\\\\\XLDeploy-AppDeploy"</commandLine>    
+												</cmd.Command>
+												<cmd.Command name=\\"${prod_tag}-deploy-command\\">
+													<order>100</order>
+													<commandLine>E:\\\\\\XLDeploy-AppDeploy\\\\\\${prod_tag}.bat</commandLine>    
+												</cmd.Command>
+											</deployables>
+											<satisfiesProdMinusOneDeployment>"${prodMinusOne}"</satisfiesProdMinusOneDeployment>
+											<satisfiesTicketNumber>"${prodTicketNumber}"</satisfiesTicketNumber>
+											<dependencyResolution>LATEST</dependencyResolution>
+											<undeployDependencies>false</undeployDependencies>
+										</udm.DeploymentPackage>
+										"""
+							try {  
+								sh('#!/bin/sh -e\n' + "echo \"${manifest}\" > \"${targetBuildArtifacts}\\${manifestXML}\"")
+								deployStatus=SUCCESS
+							} catch (err) {
+								deployStatus=FAILED
+								echo "${RED}${err}${RESET}"
+								sh 'exit 1'                          
+							}
+						}
+					}
+				}
+				stage('Package') {
+					when {
+						allOf {
+							expression{deployStatus == SUCCESS}							
+							expression{performTagging == true}
+						}                
+					}
+					steps{ 
+						script {
+							echo "${BGORANGE}${BOLD}------------PHASE: XLDEPLOY STEP:2 CREATING XL DEPLOY PACKAGE-----------${RESET}"	
+							try{
+								xldCreatePackage artifactsPath: "TEMP/DOWNLOAD", manifestPath: "TEMP\\${manifestXML}", darPath: "${appName}.0.dar"
+								deployStatus=SUCCESS
+							} catch (err) {
+								deployStatus=FAILED
+								echo "${RED}${err}${RESET}"
+								sh 'exit 1'                          
+							}							
+						}						
+					}
+				} 
+				stage('Publish') { 
+					when {
+						allOf {
+							expression{deployStatus == SUCCESS}
+							expression{performTagging == true}						
+						}                
+					}
+					steps{ 
+						script {
+							echo "${BGORANGE}${BOLD}------------PHASE: XLDEPLOY STEP:2 PUBLISH XL DEPLOY PACKAGE-----------${RESET}"
+							try{								
+								xldPublishPackage serverCredentials: "ksenthi5-xlDeploy",   darPath: "${appName}.0.dar"
+								deployStatus=SUCCESS
+							} catch (err) {
+								deployStatus=FAILED
+								echo "${RED}${err}${RESET}"
+								sh 'exit 1'                          
+							}							
+						}						
+					}
+				} 
+				stage('Deploy') { 
+					when {
+						allOf {
+							expression{performTagging == false || deployStatus == SUCCESS}							
+						}                
+					}
+					steps{ 
+						script {
+							echo "${BGORANGE}${BOLD}------------PHASE: XLDEPLOY STEP:3 DEPLOY XL DEPLOY PACKAGE TO ${targetDeployFolder}-----------${RESET}"
+							try{								
+								if(targetDeployFolder == CORE) {
+									echo "${BGORANGE}${BOLD}------------Initiating CORE Connection-----------${RESET}"								
+									xldDeploy serverCredentials: "ksenthi5-xlDeploy", environmentId: "Environments/OmniChannel/${appName}/PROD-CORE", packageId: "Applications/OmniChannel/Agent Workspace/${appName}/${prod_tag}"
+								    deployStatus=SUCCESS
+								}
+								if(targetDeployFolder == DMZ) {
+									echo "${BGORANGE}${BOLD}------------Initiating DMZ Connection-----------${RESET}"
+									xldDeploy serverCredentials: "ksenthi5-xlDeploy", environmentId: "Environments/OmniChannel/${appName}/PROD-DMZ", packageId: "Applications/OmniChannel/Agent Workspace/${appName}/${prod_tag}"
+								    deployStatus=SUCCESS
+								}
+							} catch (err) {
+								deployStatus=FAILED
+								echo "${RED}${err}${RESET}"
+								sh 'exit 1'                          
+							}						
+						}						
+					}
+				} 				
+			}
+		}
+		stage ('Tagging STAGE') {
+			when {
+                allOf {
+                    expression{checkoutStatus == SUCCESS}
+					expression{artifactoryStatus == SUCCESS}
+					expression{deployStatus == SUCCESS}
+                }                
+            }
+			steps {
+				script {
+					echo "---------------Initiating Tagging for PROD---------------"
+					script{
+						try {							
+							if(performTagging){
+								bat "git tag  \"${prod_tag}\" \"${tag_response}\""
+								bat "git push origin ${prod_tag}"
+								echo "** Tagging PROD Successful **"
+								taggingStatus=SUCCESS
+							} else {
+								echo "Skipping Tag as Tag ${prod_tag} already exists"
+							}	
+						} catch(err) {
+							echo "${RED}${BOLD}${err}${RESET}"
+							taggingStatus=FAILED
+							sh 'exit 0'
+						}
+					}	
+				}
+			}
+		}
+		stage("Publish Hygieia") {  
+            when {
+                allOf {                    
+                    expression{taggingStatus == SUCCESS}
+                }                
+            }         
+            steps {
+                echo "${BGORANGE}${BOLD}------------PUBLISHING-----------${RESET}"
+                script {
+                    try{                       
+                       def hygieiaTag = "${prod_tag}"
+                       echo "${hygieiaTag}"
+                        hygieiaDeployPublishStep applicationName: "${hygieiaAppName}", artifactDirectory: "\\TEMP", artifactGroup: "WWE", artifactName: "*.zip", artifactVersion: "${hygieiaTag}", buildStatus: "Success", environmentName: "${environment}"
+                    } catch (err) {
+                        echo 'Publishing failed.'
+                        echo "${RED}${BOLD}${err}${RESET}"
+                        taggingStatus=FAILED
+                        sh 'exit 1'                          
+                    }                
+                }
+            }
+        }
+	}
+	post {
+		success {
+            echo 'This will run only if success'
+            emailext attachmentsPattern: 'fortifyscan_results.pdf',
+                        body:  "Job Status: <font color='#006600'>${currentBuild.currentResult}</font><br>" +
+                            "Build URL: ${BUILD_URL} <br>" +
+		                    "Build Job: $JOB_NAME <br><br><br>" +                        
+                            "${emailContent}",
+                        to:"${toEmail}",                        
+                        subject: "${appName}: PROD Build: ${currentBuild.currentResult}",
+                        mimeType: 'text/html'
+        }
+        failure {
+            echo 'This will run only if failed'
+            emailext attachmentsPattern: 'fortifyscan_results.pdf',
+                        body:  "Build Status: <font color='red'>${currentBuild.currentResult}</font><br>" +
+                            "Build URL: ${BUILD_URL} <br>" +
+		                    "Build Job: $JOB_NAME <br><br><br>" +                      
+                            "${emailContent}",
+                        to:"${toEmail}",                        
+                        subject: "${appName}: PROD Build: ${currentBuild.currentResult}",
+                        mimeType: 'text/html'
+        }
+		unstable {
+            echo 'This will run only if the run was marked as unstable'
+        }
+        changed {
+            echo 'This will run only if the state of the Pipeline has changed'
+            echo 'For instance, if the Pipeline was previously failing but is now successful'
+        }
+		always {
+			echo 'This will always run.'
+			script {
+				emailContent = """\
+					<html>
+						<head>
+								<style>
+									table, th, td {
+									padding: 10px;
+									border: 1px solid black; 
+									border-collapse: collapse;
+									}
+								</style>
+						</head>
+						<body>
+							<table style="width:200px;margin:0;font-size: 12px;">
+								<tr style="background-color:#ccf5ff;">
+									<th>Steps</th>
+									<th>Status</th>                                            
+								</tr>																
+								<tr style="background-color:#F8F8F8;"><td>CheckOut</td><td>${checkoutStatus}</td></tr>
+								<tr style="background-color:#F8F8F8;"><td>Artifactory</td><td>${artifactoryStatus}</td></tr>
+								<tr style="background-color:#F8F8F8;"><td>Deploy</td><td>${deployStatus}</td></tr>
+								<tr style="background-color:#F8F8F8;"><td>Tagging</td><td>${taggingStatus}</td></tr>
+								<tr style="background-color:#F8F8F8;"><td>Deploy Tag</td><td>${prod_tag}</td></tr>								                         
+								<tr style="background-color:#F8F8F8;"><td>Change Number</td><td>${prodTicketNumber}</td></tr>
+								<tr style="background-color:#F8F8F8;"><td>Deploy Target</td><td>${targetDeployFolder}</td></tr>
+							</table><br><br>                            
+						</body>
+					</html>
+				"""
+			}            
+		}
+	}
+}
