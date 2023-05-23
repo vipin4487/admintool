@@ -1,0 +1,1 @@
+window.production=!1,window.baseRoute="CCSDesktopAdmin",window.api="http://apsed6049.ms.ds.uhc.com/CCSDesktopAdminAPI/",window.wizardURL="http://apsed6049.ms.ds.uhc.com";
